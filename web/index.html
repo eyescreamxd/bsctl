@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BlackShark — настройки</title>
+<style>
+:root {
+  --bg: #f4f5f7; --card: #ffffff; --text: #1b1d21; --muted: #5f6672; --line: #e2e5ea; --hover: #f0f2f5;
+  --accent: #1f9d6b; --accent-soft: #e3f4ec; --warn: #a15c00; --warn-bg: #fff4e0; --bad: #c0362c;
+  --track: #d5d9e0; --curve: rgba(31,157,107,.35);
+  --ctl-h: 28px; --radius: 7px; --label-w: 190px; --val-w: 52px; --eq-h: 128px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171b; --card: #1e2126; --text: #e8eaee; --muted: #9aa1ad; --line: #2f343c; --hover: #262a30;
+    --accent: #3cc98f; --accent-soft: #1c3b2f; --warn: #f0b45a; --warn-bg: #3a2d17; --bad: #ff7a6e;
+    --track: #3a3f48; --curve: rgba(60,201,143,.35);
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text);
+  font: 13.5px/1.4 "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif; }
+main { max-width: 900px; margin: 0 auto; padding: 12px 14px 16px; }
+
+/* header */
+header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+h1 { font-size: 18px; font-weight: 600; margin: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; background: var(--card); border: 1px solid var(--line);
+  border-radius: 999px; color: var(--muted); white-space: nowrap; font-size: 12.5px; }
+.chip b { color: var(--text); font-weight: 600; margin-left: 4px; }
+.chip.muted b { color: var(--bad); }
+
+/* cards and sections */
+section.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px 14px; margin-bottom: 10px; }
+.card h2 { font-size: 14.5px; font-weight: 600; margin: 0 0 10px; min-height: var(--ctl-h);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card h3 { font-size: 11.5px; font-weight: 600; margin: 0 0 8px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+.sub { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 12px; }
+.card h2 .note { font-weight: 400; }
+
+/* one look for every button-like control */
+.pills { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.pill, .btn { display: inline-flex; align-items: center; height: var(--ctl-h); padding: 0 9px; border: 1px solid var(--line);
+  border-radius: var(--radius); background: var(--card); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.pill:hover, .btn:hover { background: var(--hover); }
+.pill:focus-visible, .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pill.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+/* equalizer: scale column + 10 bands, curve drawn behind the sliders */
+.eq { position: relative; display: grid; grid-template-columns: 30px repeat(10, 1fr); align-items: end; }
+.eq .scale { display: flex; flex-direction: column; justify-content: space-between; height: var(--eq-h); margin-bottom: 20px;
+  color: var(--muted); font-size: 10.5px; line-height: 1; text-align: right; padding: 2px 6px 2px 0; font-variant-numeric: tabular-nums; }
+.eq svg { position: absolute; left: 30px; right: 0; top: 20px; height: var(--eq-h); width: calc(100% - 30px); pointer-events: none; }
+.band { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; z-index: 1; }
+.band .v { font-size: 11.5px; font-variant-numeric: tabular-nums; height: 18px; line-height: 18px; }
+.band .f { font-size: 10.5px; color: var(--muted); height: 18px; line-height: 18px; }
+
+/* sliders */
+input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; margin: 0; }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; background: var(--track); border-radius: 2px; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -5px;
+  border-radius: 50%; background: var(--accent); border: 2px solid var(--card); box-shadow: 0 0 0 1px var(--accent); }
+input[type=range]:focus-visible { outline: none; }
+input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--accent-soft), 0 0 0 4px var(--accent); }
+input[type=range].vert { writing-mode: vertical-lr; direction: rtl; height: var(--eq-h); width: 24px; }
+input[type=range].vert::-webkit-slider-runnable-track { width: 4px; height: auto; margin: 0 auto; }
+input[type=range].vert::-webkit-slider-thumb { margin-top: 0; margin-left: -5px; }
+
+/* setting rows: label | control | value, the same columns everywhere */
+.set { display: grid; grid-template-columns: var(--label-w) 1fr var(--val-w); align-items: center; column-gap: 14px; min-height: 32px; }
+.set > .span { grid-column: 1 / -1; }
+.set input[type=range] { width: 100%; height: 20px; }
+.val { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* switches */
+.switch { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; position: relative; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch .knob { width: 34px; height: 20px; border-radius: 10px; background: var(--track); position: relative; transition: background .15s; flex: none; }
+.switch .knob::after { content: ""; position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  transition: left .15s; box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+.switch input:checked + .knob { background: var(--accent); }
+.switch input:checked + .knob::after { left: 17px; }
+.switch input:focus-visible + .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* text */
+.note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+.note:empty { display: none; }
+.warn { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  background: var(--warn-bg); color: var(--warn); border-radius: var(--radius); padding: 6px 10px; margin: 8px 0 0; font-size: 12.5px; }
+.ok { color: var(--accent); font-weight: 600; }
+footer { color: var(--muted); font-size: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 0 2px; }
+#toast { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); background: var(--bad); color: #fff;
+  padding: 8px 14px; border-radius: 8px; max-width: 90vw; display: none; box-shadow: 0 4px 16px rgba(0,0,0,.25); }
+.hidden { display: none !important; }
+@media (max-width: 560px) {
+  :root { --label-w: 1fr; }
+  .set { grid-template-columns: 1fr var(--val-w); }
+  .set > .lbl { grid-column: 1 / -1; }
+  .eq { grid-template-columns: 24px repeat(10, 1fr); }
+  .eq svg { left: 24px; width: calc(100% - 24px); }
+  input[type=range].vert { width: 18px; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>BlackShark</h1>
+    <div class="chips">
+      <span class="chip" id="chipHeadset">Гарнитура: <b>…</b></span>
+      <span class="chip" id="chipMic">Микрофон: <b>…</b></span>
+      <span class="chip hidden" id="chipMouse">Мышь: <b>…</b></span>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>Наушники — эквалайзер <button class="btn" id="eqReset" title="Все полосы в 0 дБ">Сбросить</button></h2>
+    <div class="pills" id="eqPresets"></div>
+    <div class="eq" id="eqSpeaker"></div>
+    <p class="note" id="eqNote"></p>
+  </section>
+
+  <section class="card">
+    <h2>Микрофон</h2>
+    <h3>Эквалайзер в гарнитуре</h3>
+    <div class="pills" id="micPresets"></div>
+    <div class="eq" id="eqMic"></div>
+    <p class="note" id="micNote"></p>
+
+    <div class="sub">
+      <h3>Шумоподавление (через Equalizer APO)</h3>
+      <div class="pills" id="nsEngines"></div>
+      <p class="note" id="nsEngineNote"></p>
+      <div class="set">
+        <span class="lbl">Усиление микрофона</span>
+        <input type="range" id="nsGain" min="0" max="12" step="0.5" aria-label="Усиление микрофона">
+        <span class="val" id="nsGainVal"></span>
+      </div>
+      <div id="nsStatus" class="note"></div>
+      <div id="nsDemo" class="warn hidden"><span>В config.txt включён демо-фильтр Equalizer APO (подъём баса), он действует на все устройства.</span>
+        <button class="btn" id="nsDemoOff">Отключить демо-фильтр</button></div>
+    </div>
+
+    <div class="sub">
+      <h3>Самопрослушивание</h3>
+      <div class="set">
+        <label class="lbl switch"><input type="checkbox" id="stOn"><span class="knob"></span><span>Слышать себя</span></label>
+        <input type="range" id="stLevel" min="0" max="100" step="1" aria-label="Громкость самопрослушивания">
+        <span class="val" id="stLevelVal"></span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card hidden" id="mouseCard">
+    <h2>Мышь и док <span class="note" id="mouseStatus" style="margin:0"></span></h2>
+    <div class="set">
+      <label class="lbl switch span"><input type="checkbox" id="dockOn"><span class="knob"></span><span>Подсветка дока показывает заряд мыши</span></label>
+    </div>
+    <div class="set">
+      <span class="lbl">Яркость дока</span>
+      <input type="range" id="dockBright" min="0" max="100" step="5" aria-label="Яркость дока">
+      <span class="val" id="dockBrightVal"></span>
+    </div>
+  </section>
+
+  <footer>
+    <span id="ver"></span>
+    <button class="btn" id="applyAll" title="Отправить все настройки в гарнитуру заново">Отправить всё в гарнитуру заново</button>
+  </footer>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+const T = new URLSearchParams(location.search).get("t") || "";
+const $ = (id) => document.getElementById(id);
+let S = null;          // last state from the tray
+let touchUntil = 0;    // don't overwrite controls the user is moving
+const timers = {};
+
+async function call(path, body) {
+  const opt = { headers: { "X-Token": T } };
+  if (body) { opt.method = "POST"; opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("ошибка " + r.status));
+  return j;
+}
+function toast(msg) {
+  const t = $("toast"); t.textContent = msg; t.style.display = "block";
+  clearTimeout(timers.toast); timers.toast = setTimeout(() => t.style.display = "none", 6000);
+}
+function send(body, delay) {
+  touchUntil = Date.now() + 1500;
+  clearTimeout(timers[body.op]);
+  timers[body.op] = setTimeout(async () => {
+    try { render(await call("/api/do", body), true); } catch (e) { toast(e.message); }
+  }, delay || 0);
+}
+function db(v) { return (v > 0 ? "+" : v < 0 ? "−" : "") + Math.abs(v); }
+
+// ---- EQ widget: 10 vertical sliders + a smooth curve behind them ----
+function makeEQ(box, onChange) {
+  box.innerHTML = "";
+  const scale = document.createElement("div"); scale.className = "scale";
+  scale.innerHTML = "<span>+12</span><span>+6</span><span>0</span><span>−6</span><span>−12</span>";
+  box.appendChild(scale);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("viewBox", "0 0 1000 128");
+  const zero = document.createElementNS(svg.namespaceURI, "line");
+  zero.setAttribute("x1", "0"); zero.setAttribute("x2", "1000"); zero.setAttribute("y1", "64"); zero.setAttribute("y2", "64");
+  zero.setAttribute("stroke", "currentColor"); zero.setAttribute("stroke-opacity", ".15"); zero.setAttribute("stroke-dasharray", "6 6");
+  const path = document.createElementNS(svg.namespaceURI, "path");
+  path.setAttribute("fill", "none"); path.setAttribute("stroke", "var(--curve)"); path.setAttribute("stroke-width", "5");
+  path.setAttribute("vector-effect", "non-scaling-stroke"); path.setAttribute("stroke-linecap", "round");
+  svg.append(zero, path);
+  box.appendChild(svg);
+  const sliders = [], labels = [];
+  (S ? S.bandNames : ["31","63","125","250","500","1k","2k","4k","8k","16k"]).forEach((name, i) => {
+    const b = document.createElement("div"); b.className = "band";
+    const v = document.createElement("span"); v.className = "v";
+    const s = document.createElement("input");
+    s.type = "range"; s.className = "vert"; s.min = -12; s.max = 12; s.step = 1; s.value = 0;
+    s.setAttribute("aria-label", name + " Гц");
+    const f = document.createElement("span"); f.className = "f"; f.textContent = name;
+    s.addEventListener("input", () => { v.textContent = db(+s.value); draw(); onChange(sliders.map(x => +x.value)); });
+    b.append(v, s, f); box.appendChild(b);
+    sliders.push(s); labels.push(v);
+  });
+  function draw() {
+    const pts = sliders.map((s, i) => [((i + 0.5) / 10) * 1000, 64 - (+s.value) * (57 / 12)]);
+    let d = "M" + pts[0][0] + "," + pts[0][1];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += " C" + c1 + " " + c2 + " " + p2;
+    }
+    path.setAttribute("d", d);
+  }
+  return {
+    set(bands) { sliders.forEach((s, i) => { s.value = bands[i] || 0; labels[i].textContent = db(+s.value); }); draw(); },
+  };
+}
+
+let eqSpk, eqMic;
+function pills(box, items, isOn, onClick) {
+  box.innerHTML = "";
+  items.forEach((it) => {
+    const b = document.createElement("button");
+    b.className = "pill" + (isOn(it) ? " on" : ""); b.textContent = it.title;
+    b.addEventListener("click", () => onClick(it));
+    box.appendChild(b);
+  });
+}
+
+function render(s, fromAction) {
+  S = s;
+  const h = s.headset;
+  $("chipHeadset").innerHTML = "Гарнитура: <b>" + (h.connected ? (h.battery >= 0 ? h.battery + "%" : "подключена") + (h.charging ? ", заряжается" : "") : "не подключена") + "</b>";
+  const micTxt = !h.connected ? "—" : h.mic === 1 ? "выключен" : h.mic === 0 ? "включён" : "?";
+  $("chipMic").innerHTML = "Микрофон: <b>" + micTxt + "</b>";
+  $("chipMic").classList.toggle("muted", h.connected && h.mic === 1);
+  $("chipMouse").classList.toggle("hidden", !s.mouse.enabled);
+  $("chipMouse").innerHTML = "Мышь: <b>" + (s.mouse.status || "…").replace(/^Basilisk V3 Pro: /, "") + "</b>";
+  $("ver").textContent = "bsctl " + s.version + " · настройки сохраняются в bsctl.json";
+
+  if (!fromAction && Date.now() < touchUntil) return; // the user is moving a control right now
+
+  // headphones
+  pills($("eqPresets"), s.eq.presets, (p) => p.key === s.eq.preset, (p) => send({ op: "eq.preset", key: p.key }));
+  eqSpk.set(s.eq.bands);
+  $("eqNote").textContent = s.eq.preset === "autoeq"
+    ? "AutoEQ: поправка АЧХ по замеру Rtings для BlackShark V2 Pro 2023 (проект AutoEq). Двигай ползунки — получится свой пресет."
+    : "Эквалайзер работает в самой гарнитуре. Любое движение ползунка сохраняет кривую как «Свой».";
+
+  // mic
+  pills($("micPresets"), s.mic.presets, (p) => p.index === s.mic.preset, (p) => send({ op: "mic.preset", index: p.index }));
+  eqMic.set(s.mic.bands);
+  $("micNote").textContent = s.mic.note || "Пресеты зашиты в гарнитуру; движение ползунка включает «Свой».";
+
+  // noise
+  const n = s.noise;
+  const engines = [{ key: "", title: "Выключен" }].concat(n.engines || []);
+  pills($("nsEngines"), engines, (e) => (e.key === "" ? !n.enabled : n.enabled && n.engine === e.key),
+    (e) => send(e.key === "" ? { op: "noise", on: false } : { op: "noise", on: true, engine: e.key }));
+  const eng = (n.engines || []).find((e) => e.key === n.engine);
+  $("nsEngineNote").textContent = n.enabled && eng ? eng.note
+    : "Убирает клавиатуру, вентиляторы и фон во всех программах сразу. Выбери движок и сравни в тесте микрофона.";
+  $("nsGain").value = n.gainDb; $("nsGainVal").textContent = "+" + n.gainDb + " дБ";
+  let st = "";
+  if (n.problem) st = "<span class='warn' style='display:block'>" + esc(n.problem) + "</span>";
+  else if (n.active) st = "<span class='ok'>Работает</span> " + esc(eng ? eng.title : "") + " на микрофоне " + esc(n.micName) + (n.sampleRate ? ", " + n.sampleRate + " Гц" : "") + ".";
+  else if (n.installed) st = "Equalizer APO найден" + (n.micName ? ", микрофон: " + esc(n.micName) + (n.sampleRate ? " (" + n.sampleRate + " Гц)" : "") : "") + ".";
+  $("nsStatus").innerHTML = st;
+  $("nsDemo").classList.toggle("hidden", !n.demoInclude);
+
+  // sidetone
+  $("stOn").checked = s.sidetone.on;
+  $("stLevel").value = s.sidetone.level; $("stLevelVal").textContent = s.sidetone.level + "%";
+
+  // mouse
+  $("mouseCard").classList.toggle("hidden", !s.mouse.enabled);
+  $("mouseStatus").textContent = [s.mouse.status, s.mouse.dock].filter(Boolean).join(" · ");
+  $("dockOn").checked = s.mouse.lighting;
+  $("dockBright").value = s.mouse.brightness; $("dockBrightVal").textContent = s.mouse.brightness + "%";
+}
+function esc(t) { return String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]); }
+
+function wire() {
+  eqSpk = makeEQ($("eqSpeaker"), (bands) => {
+    document.querySelectorAll("#eqPresets .pill").forEach((b, i) => b.classList.toggle("on", S.eq.presets[i].key === "custom"));
+    send({ op: "eq.bands", bands }, 250);
+  });
+  eqMic = makeEQ($("eqMic"), (bands) => {
+    document.querySelectorAll("#micPresets .pill").forEach((b, i) => b.classList.toggle("on", S.mic.presets[i].index === 255));
+    send({ op: "mic.bands", bands }, 250);
+  });
+  $("eqReset").addEventListener("click", () => send({ op: "eq.bands", bands: [0,0,0,0,0,0,0,0,0,0] }));
+  $("nsGain").addEventListener("input", () => { $("nsGainVal").textContent = "+" + $("nsGain").value + " дБ"; send({ op: "noise", gainDb: +$("nsGain").value }, 300); });
+  $("nsDemoOff").addEventListener("click", () => send({ op: "noise.demoOff" }));
+  $("stOn").addEventListener("change", () => send({ op: "sidetone", on: $("stOn").checked }));
+  $("stLevel").addEventListener("input", () => { $("stLevelVal").textContent = $("stLevel").value + "%"; send({ op: "sidetone", level: +$("stLevel").value }, 300); });
+  $("dockOn").addEventListener("change", () => send({ op: "dock", on: $("dockOn").checked }));
+  $("dockBright").addEventListener("input", () => { $("dockBrightVal").textContent = $("dockBright").value + "%"; send({ op: "dock", brightness: +$("dockBright").value }, 300); });
+  $("applyAll").addEventListener("click", () => send({ op: "apply" }));
+}
+
+async function poll() {
+  try { render(await call("/api/state")); } catch (e) { /* tray closed or busy */ }
+  setTimeout(poll, 2000);
+}
+call("/api/state").then((s) => { S = s; wire(); render(s, true); setTimeout(poll, 2000); })
+  .catch((e) => { document.body.innerHTML = "<main><p>Трей не отвечает: " + esc(e.message) + "</p></main>"; });
+</script>
+</body>
+</html>

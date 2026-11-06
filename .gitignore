@@ -1,0 +1,24 @@
+# built binaries (bsctl.exe, BlackSharkTray.exe, BlackSharkTray.new.exe)
+*.exe
+out/
+dist/
+
+# user state: settings, logs, temp files
+bsctl.json
+bsctl.json.tmp
+*.tmp
+bsctl.log
+bsctl.log.*
+
+# local dumps and archives
+*.tar.gz
+*.zip
+audio-fx.txt
+
+# tools and editors
+.codegraph/
+.claude/
+.vscode/
+.idea/
+
+# plugins in rnnoise/ and dfn/ are committed as is (DLL + licenses)
