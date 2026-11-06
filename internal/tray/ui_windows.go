@@ -218,6 +218,7 @@ func (u *trayUI) Do(r ui.Request) error {
 	case "noise.demoOff":
 		es, _ := u.eapoState()
 		if !es.Installed {
+			//lint:ignore ST1005 product name
 			return fmt.Errorf("Equalizer APO не найден")
 		}
 		p := filepath.Join(es.ConfigDir, "config.txt")

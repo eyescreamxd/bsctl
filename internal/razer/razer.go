@@ -1,6 +1,8 @@
 // Package razer speaks Razer protocol 2.5 to the Basilisk V3 Pro and the Mouse Dock Pro.
 package razer
 
+//lint:file-ignore U1000 the command table and rzStatusText are used by mouse_windows.go, so they look unused on other platforms
+
 // Razer "protocol 2.5" feature reports, used by the Basilisk V3 Pro and the
 // Mouse Dock Pro. Reconstructed from Synapse 4 (rzDevice25 / rzDevice25Linker /
 // rzDevice25DualLinkMouse) and its logs. The report is 90 bytes, sent and read
