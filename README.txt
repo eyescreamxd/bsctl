@@ -1,8 +1,14 @@
-bsctl 0.7.0 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
+bsctl 0.7.1 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
+
+Где что лежит
+  Программа живёт в папке dist: exe, плагины, скрипты, этот файл, bsctl.json и bsctl.log.
+  Исходники — папкой выше; собрать заново: scripts\build.cmd (нужен Go), он кладёт всё в dist.
+  Автозапуск трей поправит сам: если в нём записан старый путь к BlackSharkTray.exe, он заменит его
+  на путь в dist (в bsctl.log будет строка «автозапуск: путь обновлён на …»).
 
 Как обновиться
   1. Если Synapse запущен — закрой его (значок в трее → выход).
-  2. Запусти update.cmd: он закроет старый трей, поставит новый и запустит его.
+  2. Запусти dist\update.cmd: он закроет старый трей, поставит новый и запустит его.
 
 Трей: два значка
   Наушники — цвет по заряду гарнитуры: зелёный 75–100%, жёлтый 50–74%, оранжевый 25–49%, красный меньше 25%.
@@ -49,22 +55,23 @@ bsctl 0.7.0 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pr
                   Нужен Microsoft Visual C++ Redistributable 2015–2022 x64 (обычно уже стоит).
   Если микрофон после включения шумодава замолчал — выбери «Выключен» и напиши мне.
 
-Файлы
+Файлы в dist
   bsctl.exe           консольная утилита
-  BlackSharkTray.exe  трей
+  BlackSharkTray.exe  трей (свежесобранный лежит как BlackSharkTray.new.exe, пока не запущен update.cmd)
+  rnnoise\, dfn\      плагины шумодава с лицензиями
   1-probe.cmd         проверка связи с гарнитурой, только чтение
   2-apply.cmd         отправить в гарнитуру настройки из bsctl.json
   3-monitor.cmd       90 секунд записывать события гарнитуры (диагностика)
   4-mouse.cmd         проверка мыши и дока: заряд, прошивки (только чтение)
   5-dock-test.cmd     прогнать цвета подсветки дока
   update.cmd          поставить новый трей вместо старого
-  build.cmd           собрать exe из исходников (нужен Go)
-  publish-github.cmd  залить папку в приватный репозиторий GitHub (нужны git и gh)
   bsctl.json          настройки
   bsctl.log           лог
-  *.go, web\          исходники (README.md — для разработчика)
 
-Команды (PowerShell в этой папке)
+Папкой выше — исходники (README.md — для разработчика), scripts\build.cmd для сборки и
+scripts\check.cmd для проверок.
+
+Команды (PowerShell в папке dist)
   .\bsctl.exe status                 гарнитура: подключение, заряд, микрофон, самопрослушивание
   .\bsctl.exe eq autoeq              пресеты: custom autoeq game movie music apex csgo valorant fortnite cod
   .\bsctl.exe eq 0,0,0,0,0,1,2,2,1,0 свой EQ: 31 63 125 250 500 1k 2k 4k 8k 16k Гц, от −12 до 12 дБ

@@ -2,4 +2,4 @@
 package version
 
 // Version of bsctl / BlackSharkTray.
-const Version = "0.7.0"
+const Version = "0.7.1"

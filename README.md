@@ -34,12 +34,14 @@
 
 ## Установка и обновление
 
-1. Собери exe (см. [Сборка](#сборка)) или возьми готовые `bsctl.exe` и `BlackSharkTray.exe`.
-   Они должны лежать в этой папке рядом с `rnnoise\` и `dfn\`.
-2. Закрой Synapse и запусти `BlackSharkTray.exe`. Автозапуск включается в меню трея, пункт «Запускать с Windows» (ключ `HKCU\…\Run`).
-3. Обновление: положи новый трей как `BlackSharkTray.new.exe` и запусти `update.cmd`. Скрипт закроет старый трей, подменит exe и запустит новый.
+1. Собери программу: `scripts\build.cmd` (см. [Сборка](#сборка)). Всё рабочее окажется в папке `dist\`:
+   `bsctl.exe`, `BlackSharkTray.new.exe`, плагины `rnnoise\` и `dfn\`, `update.cmd`, диагностические скрипты и `README.txt`.
+2. Закрой Synapse и запусти `dist\update.cmd`: он переименует `BlackSharkTray.new.exe` в `BlackSharkTray.exe` и запустит трей.
+   Автозапуск включается в меню трея, пункт «Запускать с Windows» (ключ `HKCU\…\Run`). Если exe переехал,
+   трей сам поправит путь в этом ключе.
+3. Обновление: снова `scripts\build.cmd`, затем `dist\update.cmd`. Скрипт закроет старый трей, подменит exe и запустит новый.
 
-Настройки хранятся в `bsctl.json`, лог в `bsctl.log`; оба файла лежат рядом с exe и создаются сами.
+Настройки хранятся в `bsctl.json`, лог в `bsctl.log`; оба файла лежат рядом с exe (в `dist\`) и создаются сами.
 
 ## Трей
 
@@ -151,31 +153,38 @@ bsctl tray | autostart on|off            трей; автозапуск
 
 ## Сборка
 
-Нужен Go 1.26 или новее. На Windows запусти `build.cmd`, он соберёт `bsctl.exe` и `BlackSharkTray.new.exe`. Или вручную:
+Нужен Go 1.26 или новее. На Windows запусти `scripts\build.cmd`: он соберёт `dist\bsctl.exe` и
+`dist\BlackSharkTray.new.exe` и положит рядом плагины, скрипты и `README.txt`. Или вручную:
 
 ```
 set CGO_ENABLED=0
-go build -trimpath -ldflags "-s -w" -o bsctl.exe .
-go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o BlackSharkTray.new.exe .
+go build -trimpath -ldflags "-s -w" -o dist\bsctl.exe ./cmd/bsctl
+go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o dist\BlackSharkTray.new.exe ./cmd/bsctl
 ```
 
 С Linux или macOS собирается так же, с `GOOS=windows GOARCH=amd64`. Тесты протокола, конфигов Equalizer APO и окна настроек
 не требуют Windows: `go test ./...`. Код под Windows проверяется командой `GOOS=windows go vet ./...`.
 
+Проверки перед выпуском — `scripts\check.cmd`: `gofmt`, `go vet` и `go test` для Windows, `go vet` и сборка для Linux,
+[staticcheck](https://staticcheck.dev) v0.8.2 для обеих систем.
+
 ## Как устроено
 
-| Файл | Что |
+| Путь | Что |
 |---|---|
-| `main_windows.go` | консольные команды |
-| `proto.go`, `headset_windows.go` | протокол гарнитуры (64-байтные HID-отчёты донгла), пресеты, поток событий, `Apply` |
-| `razer.go`, `mouse_windows.go` | протокол Razer 2.5 (90-байтные feature-отчёты): мышь через док, подсветка дока |
-| `hid_windows.go` | HID через `hid.dll` и CfgMgr32 |
-| `wintray_windows.go`, `tray_windows.go`, `icon.go` | свой трей на Win32, логика опроса и меню, значки рисуются кодом |
-| `ui.go`, `web/index.html`, `ui_windows.go`, `settingswin_windows.go` | окно настроек: HTTP-сервер, страница, связь с треем, место окна |
-| `eapo.go`, `eapo_windows.go`, `audiofmt_windows.go` | Equalizer APO: `bsctl.txt`, движки шумодава, формат микрофона через MMDevice API |
-| `audio_windows.go` | держит микрофон открытым для самопрослушивания (winmm) |
-| `config.go`, `version.go` | `bsctl.json`, версия |
-| `rnnoise/`, `dfn/` | готовые VST2-плагины шумодава с лицензиями |
+| `cmd/bsctl/` | `main`: консольные команды и диагностика; трей — та же программа с `-X main.defaultMode=tray` |
+| `internal/headset/` | протокол гарнитуры (64-байтные HID-отчёты донгла), пресеты, поток событий, `Apply` |
+| `internal/razer/` | протокол Razer 2.5 (90-байтные feature-отчёты): мышь через док, подсветка дока |
+| `internal/hid/` | HID через `hid.dll` и CfgMgr32 |
+| `internal/tray/`, `internal/wintray/`, `internal/icon/` | логика опроса и меню, свой трей на Win32, значки рисуются кодом |
+| `internal/ui/` (+ `web/index.html`), `internal/tray/` | окно настроек: HTTP-сервер и страница; связь с треем и место окна |
+| `internal/eapo/` | Equalizer APO: `bsctl.txt`, движки шумодава, формат микрофона через MMDevice API |
+| `internal/audio/` | держит микрофон открытым для самопрослушивания (winmm) |
+| `internal/config/`, `internal/paths/`, `internal/version/` | `bsctl.json` и лог, папка exe, версия |
+| `internal/autostart/` | автозапуск через `HKCU\…\Run` |
+| `third_party/rnnoise/`, `third_party/dfn/` | готовые VST2-плагины шумодава с лицензиями |
+| `scripts/` | сборка, проверки, `update.cmd` и диагностические скрипты |
+| `dist/` | результат сборки, в git не хранится |
 
 **Гарнитура.** Донгл принимает 64-байтные отчёты. Пары команд «get/set»:
 
@@ -227,11 +236,13 @@ go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o Bl
 |---|---|---|
 | [golang.org/x/sys](https://pkg.go.dev/golang.org/x/sys) | BSD-3-Clause | зависимость Go |
 | [AutoEq](https://github.com/jaakkopasanen/AutoEq) | MIT | кривая пресета AutoEQ |
-| [noise-suppression-for-voice](https://github.com/werman/noise-suppression-for-voice) (RNNoise VST) | GPL-3.0 | `rnnoise/`, неизменённый бинарник |
-| [Alt Denoiser](https://github.com/Altinus/Alt-Denoiser) (VST2, JUCE) | GPL-3.0 | `dfn/`, неизменённый бинарник |
-| [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | MIT / Apache-2.0 | модель внутри `dfn/alt_denoiser.dll` |
+| [noise-suppression-for-voice](https://github.com/werman/noise-suppression-for-voice) (RNNoise VST) | GPL-3.0 | `third_party/rnnoise/`, неизменённый бинарник |
+| [Alt Denoiser](https://github.com/Altinus/Alt-Denoiser) (VST2, JUCE) | GPL-3.0 | `third_party/dfn/`, неизменённый бинарник |
+| [DeepFilterNet](https://github.com/Rikorose/DeepFilterNet) | MIT / Apache-2.0 | модель внутри `third_party/dfn/alt_denoiser.dll` |
 
 Тексты лицензий и контрольные суммы лежат рядом с плагинами (`README.txt`, `LICENSE*.txt`). Плагины работают как отдельные
-программы внутри Equalizer APO, `bsctl` с ними не линкуется. Лицензия самого `bsctl` пока не выбрана.
+программы внутри Equalizer APO, `bsctl` с ними не линкуется.
+
+Сам `bsctl` распространяется под [WTFPL v2](LICENSE).
 
 Проект не связан с Razer Inc. Razer, BlackShark, Basilisk и HyperSpeed — товарные знаки Razer Inc.

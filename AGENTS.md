@@ -30,61 +30,76 @@
 - Зависимости: только стандартная библиотека и `golang.org/x/sys`. Без CGO.
 - Платформы. Код под Windows лежит в `*_windows.go`. Логику без Win32 (протоколы, разбор, генерация конфигов, HTTP окна) держи в файлах
   без суффикса, тогда `go test ./...` проходит на Linux.
-- После правок прогоняй:
+- Раскладка Go: `cmd/bsctl` (`package main`, там же `var defaultMode` для `-X main.defaultMode=tray`) и пакеты в `internal/`.
+  Экспортируй только то, что нужно другим пакетам. `config` импортирует `headset` и `eapo`, поэтому `headset` и `eapo`
+  не импортируют `config`: `Apply` получает `headset.Settings`, `Open` — `headset.Conn`, папку exe дают `internal/paths`.
+- После правок прогоняй `scripts\check.cmd` (на Windows) или вручную:
   ```
-  gofmt -l .                      # пусто
-  go vet ./... && GOOS=windows GOARCH=amd64 go vet ./...
+  gofmt -l cmd internal           # пусто
+  go vet ./... && GOOS=linux go vet ./... && GOOS=windows GOARCH=amd64 go vet ./...
   go test ./...
+  go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...   # и с GOOS=linux / GOOS=windows
   ```
-- Версия задаётся в `version.go`; поднимай её при каждой выдаче пользователю. Первая строка `README.txt` тоже содержит номер версии.
+  На Windows `GOOS=linux go test` не запустится (linux-бинарники), поэтому `check.cmd` для Linux делает `vet` и `build`,
+  а `staticcheck` ставит в `%TEMP%\bsctl-tools`.
+- Версия задаётся в `internal/version/version.go`; поднимай её при каждой выдаче пользователю. Первая строка `README.txt` тоже содержит номер версии.
 - Форматы файлов закреплены в `.gitattributes`:
   - `.cmd` — только ASCII и CRLF: cmd.exe путается в UTF-8;
   - `.txt` — UTF-8 и CRLF;
   - `.go`, `.md`, `.html` — LF.
-- `<title>` в `web/index.html` должен совпадать с `settingsTitle` в `ui.go`: трей ищет окно Edge по заголовку. Это проверяет тест `TestSettingsTitle`.
-- Не коммитить: `*.exe`, `bsctl.json`, `bsctl.log*`. Плагины в `rnnoise/` и `dfn/` коммитятся как есть, неизменёнными, с лицензиями и `README.txt`.
+- `<title>` в `internal/ui/web/index.html` должен совпадать с `ui.SettingsTitle`: трей ищет окно Edge по заголовку. Это проверяет тест `TestSettingsTitle`.
+- Не коммитить: `dist/`, `*.exe`, `bsctl.json`, `bsctl.log*`. Плагины в `third_party/rnnoise/` и `third_party/dfn/` коммитятся как есть,
+  неизменёнными, с лицензиями и `README.txt`.
+- Лицензия проекта — WTFPL v2 (`LICENSE`).
 - Внешние пути не хардкодить. Equalizer APO берётся из `HKLM\SOFTWARE\EqualizerAPO` (`ConfigPath`), Edge — из App Paths.
 
 ## Карта кода
 
 | Файл | Что |
 |---|---|
-| `main_windows.go` | разбор команд, `usage`, диагностика (`probe`, `monitor`, `mouse`, `eapo`), автозапуск |
-| `proto.go` | протокол гарнитуры: сборка и разбор пакетов, пресеты EQ |
-| `headset_windows.go` | донгл: поток чтения, `tx` с ожиданием ответа, `Apply`, sidetone |
-| `razer.go`, `mouse_windows.go` | Razer 2.5 (мышь и док): пакеты, crc, заряд, эффекты, события дока |
-| `hid_windows.go` | HID: перечисление (CfgMgr32), чтение и запись, feature-отчёты, CancelIoEx |
-| `wintray_windows.go` | свой трей на Win32: несколько значков, меню, TaskbarCreated |
-| `tray_windows.go` | `trayApp`: воркеры гарнитуры (`hsWorker`) и мыши (`msWorker`), меню, `bsctl.json` |
-| `icon.go` | значки рисуются кодом и пакуются в ICO |
-| `ui.go`, `web/index.html` | HTTP окна настроек: токен, проверка Host, `/api/state`, `/api/do`, страница |
-| `ui_windows.go` | бэкенд окна: `State()`/`Do()`, запуск Edge, `setNoise` для меню |
-| `settingswin_windows.go` | поиск окна Edge по заголовку, восстановление места, запись перемещений |
-| `eapo.go` | генерация `bsctl.txt`/`config.txt` (шумодав, `GraphicEQ` микрофона, усиление), движки шумодава (`noiseEngines`), разбор WAVEFORMATEX |
-| `eapo_windows.go` | поиск APO и микрофона в реестре, проверки, `eapoApply`, копирование плагинов |
-| `audiofmt_windows.go` | формат микрофона через MMDevice API (COM, `PKEY_AudioEngine_DeviceFormat`) |
-| `audio_windows.go` | waveIn: держит микрофон открытым для самопрослушивания |
-| `config.go` | `bsctl.json`: умолчания, проверка, сохранение через `.tmp` и rename |
+| `cmd/bsctl/main_windows.go` | разбор команд, `usage`, диагностика (`probe`, `monitor`, `mouse`, `eapo`); `main_other.go` — заглушка не под Windows |
+| `internal/headset/proto.go` | протокол гарнитуры: сборка и разбор пакетов, пресеты EQ, `Settings`, `Conn` |
+| `internal/headset/headset_windows.go` | донгл: поток чтения, `tx` с ожиданием ответа, `Open`, `Apply`, sidetone |
+| `internal/razer/razer.go`, `mouse_windows.go` | Razer 2.5 (мышь и док): пакеты, crc, заряд, эффекты, `Link`, события дока |
+| `internal/hid/hid_windows.go` | HID: перечисление (CfgMgr32), чтение и запись, feature-отчёты, CancelIoEx, `ProcessRunning`; `hex.go` — `Hex`, `TrimZeros` |
+| `internal/wintray/wintray_windows.go` | свой трей на Win32: несколько значков, меню, TaskbarCreated |
+| `internal/tray/tray_windows.go` | `trayApp`: воркеры гарнитуры (`hsWorker`) и мыши (`msWorker`), меню, `bsctl.json` |
+| `internal/icon/icon.go` | значки рисуются кодом и пакуются в ICO |
+| `internal/ui/ui.go`, `web/index.html` | HTTP окна настроек: токен, проверка Host, `/api/state`, `/api/do`, страница |
+| `internal/tray/ui_windows.go` | бэкенд окна: `State()`/`Do()`, запуск Edge, `setNoise` для меню |
+| `internal/tray/settingswin_windows.go` | поиск окна Edge по заголовку, восстановление места, запись перемещений |
+| `internal/eapo/eapo.go` | генерация `bsctl.txt`/`config.txt` (шумодав, `GraphicEQ` микрофона, усиление), движки шумодава (`Engines`), разбор WAVEFORMATEX |
+| `internal/eapo/eapo_windows.go` | поиск APO и микрофона в реестре, проверки, `Apply`, копирование плагинов |
+| `internal/eapo/audiofmt_windows.go` | формат микрофона через MMDevice API (COM, `PKEY_AudioEngine_DeviceFormat`) |
+| `internal/audio/audio_windows.go` | waveIn: держит микрофон открытым для самопрослушивания |
+| `internal/config/config.go` | `bsctl.json`: умолчания, проверка, сохранение через `.tmp` и rename; `bsctl.log` |
+| `internal/autostart/` | ключ `HKCU\…\Run`; при старте трей переписывает путь, если exe переехал |
+| `internal/paths/`, `internal/version/` | папка exe; версия |
+| `scripts/` | `build.cmd` (сборка в `dist\`), `check.cmd`, `update.cmd`, диагностика `1-probe.cmd` … `5-dock-test.cmd` |
 
 ## Выдача пользователю
 
-- Пользователь работает в `Desktop\BlackShark\bsctl`. Запущенный `BlackSharkTray.exe` занят Windows, поэтому новый трей кладётся
-  как `BlackSharkTray.new.exe`, а `update.cmd` его подменяет. `bsctl.exe` можно перезаписывать.
-- После обновления посмотри `bsctl.log`: там должны быть строки `tray X started` и
-  `Equalizer APO: <микрофон>, 48000 Гц, 1 кан., 16 бит [Windows Audio] …`.
+- Пользователь работает в `Desktop\BlackShark\bsctl`, программа живёт в `dist\`: там exe, плагины `rnnoise\` и `dfn\`,
+  скрипты, `README.txt`, а также его `bsctl.json` и `bsctl.log`.
+- Выдача: `scripts\build.cmd` собирает в `dist\` и копирует туда плагины, скрипты и `README.txt`; пользователь запускает
+  `dist\update.cmd`. Запущенный `BlackSharkTray.exe` занят Windows, поэтому новый трей всегда собирается как
+  `BlackSharkTray.new.exe`, а `update.cmd` его подменяет. `bsctl.exe` можно перезаписывать.
+- После обновления посмотри `dist\bsctl.log`: там должны быть строки `tray X started` и
+  `Equalizer APO: <микрофон>, 48000 Гц, 1 кан., 16 бит [Windows Audio] …`. Если автозапуск смотрел на старый путь,
+  там же будет `автозапуск: путь обновлён на …`.
 - `bsctl.json` и `bsctl.log` — состояние пользователя, их не перезаписывать.
-- Сборка: `build.cmd` на Windows. Из Linux так:
+- Сборка из Linux (плагины, скрипты и `README.txt` тогда скопируй в `dist/` сам):
   ```
-  CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o bsctl.exe .
-  CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o BlackSharkTray.new.exe .
+  CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/bsctl.exe ./cmd/bsctl
+  CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o dist/BlackSharkTray.new.exe ./cmd/bsctl
   ```
-- GitHub: `publish-github.cmd` создаёт приватный репозиторий `bsctl` через `gh` пользователя. Дальше обычный `git`.
+- GitHub: репозиторий `github.com/eyescreamxd/bsctl` уже есть, дальше обычный `git`.
 
 ## Как проверять без железа
 
-- **Окно настроек.** Команда `UI_PREVIEW_SECONDS=30 go test -v -run 'TestUIServer$' .` печатает адрес фейкового бэкенда.
+- **Окно настроек.** Команда `UI_PREVIEW_SECONDS=30 go test -v -run 'TestUIServer$' ./internal/ui` печатает адрес фейкового бэкенда.
   Скриншоты снимай Playwright (Chromium): светлая и тёмная темы, ширины 944 и 420.
-- **Значки.** `PREVIEW_DIR=<папка> go test -run TestIconPreview .` рисует лист со всеми состояниями.
+- **Значки.** `PREVIEW_DIR=<папка> go test -run TestIconPreview ./internal/icon` рисует лист со всеми состояниями.
 - **Wine + Xvfb.**
   - `bsctl.exe tray-selftest` проверяет значки и меню.
   - `bsctl.exe eapo` и `ns ...` проверяют APO. Для этого подделай реестр через `wine reg add`:
@@ -113,7 +128,7 @@
 
 ### Гарнитура
 
-Подробности в `proto.go`.
+Подробности в `internal/headset/proto.go`.
 
 - Пакеты: HID output report 2, 64 байта: `02 80 <len> 00 00 'P' 'A' <target> 00 <blockLen> <cmd> <lenHi> <lenLo> <data>`.
   `target` — `0x08` для гарнитуры, `0x0E` для самого донгла.
@@ -142,7 +157,7 @@
   У нас это делает `audio_windows.go`: waveIn на 48 кГц, моно.
 - EQ микрофона в гарнитуре не работает. Проверено 2026-11-07: полосы −12 (0x97) и пресет «Конференция» (0x96) прошивка подтверждает,
   но ни собеседник, ни самопрослушивание разницы не слышат. Synapse 0x97 этой гарнитуре не шлёт. Поэтому `Apply` шлёт пресет 0,
-  а EQ микрофона делает Equalizer APO (`GraphicEQ` в `bsctl.txt`, `Config.micEQ`).
+  а EQ микрофона делает Equalizer APO (`GraphicEQ` в `bsctl.txt`, `Config.MicEQ`).
 - Самопрослушивание идёт внутри гарнитуры, мимо Windows: шумодав и EQ из APO в нём не слышны.
 
 ### Мышь и док
@@ -206,4 +221,4 @@ Razer 2.5:
 - Удалить Razer Synapse, THX Spatial Audio и задачу `BlackShark-Resume-Synapse`, затем перенастроить APO на микрофоне.
 - По желанию собрать Alt Denoiser с пост-фильтром DeepFilterNet (`df_set_post_filter_beta`) и выводом порогов.
   У апстрима есть сборка в GitHub Actions.
-- Выбрать лицензию проекта.
+- ~~Выбрать лицензию проекта.~~ Сделано: WTFPL v2.
