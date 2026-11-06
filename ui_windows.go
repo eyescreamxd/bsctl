@@ -71,7 +71,7 @@ func (a *trayApp) setNoise(on bool, engine string) {
 			c.Noise.Engine = engine
 		}
 	})
-	_ = a.ui.applyNoise(c.Noise)
+	_ = a.ui.applyAPO(c)
 }
 
 func edgePath() string {
@@ -112,7 +112,6 @@ func (u *trayUI) State() uiState {
 	w.mu.Lock()
 	st.Headset.Connected, st.Headset.Battery, st.Headset.Charging = w.connected, w.battery, w.charging
 	st.Headset.Mic, st.Headset.Status = w.mic, w.status
-	st.Mic.Note = w.micEQNote
 	w.mu.Unlock()
 
 	st.EQ.Preset, st.EQ.Custom = cfg.Preset, cfg.CustomEQ
@@ -136,6 +135,9 @@ func (u *trayUI) State() uiState {
 		st.Noise.Problem = eerr
 	}
 	st.Noise.Active = cfg.Noise.Enabled && st.Noise.Problem == ""
+	if p := es.eapoProblem(NoiseConfig{}); p != "" && cfg.micEQ() != nil {
+		st.Mic.Note = "Эквалайзер микрофона не работает: " + p + "."
+	}
 	if es.Installed {
 		if b, err := os.ReadFile(filepath.Join(es.ConfigDir, "config.txt")); err == nil {
 			st.Noise.DemoInclude = hasDemoInclude(string(b))
@@ -171,14 +173,14 @@ func (u *trayUI) Do(r uiRequest) error {
 		if _, ok := findMicPreset(r.Index); !ok {
 			return fmt.Errorf("нет пресета микрофона %d", r.Index)
 		}
-		a.updateConfig(func(c *Config) { c.MicPreset = r.Index })
-		send(a.hs.reqs, "miceq")
+		c := a.updateConfig(func(c *Config) { c.MicPreset = r.Index })
+		return u.applyAPO(c)
 	case "mic.bands":
 		if err := checkBands(r.Bands); err != nil {
 			return err
 		}
-		a.updateConfig(func(c *Config) { c.MicPreset, c.MicCustomEQ = micCustomIndex, append([]int(nil), r.Bands...) })
-		send(a.hs.reqs, "miceq")
+		c := a.updateConfig(func(c *Config) { c.MicPreset, c.MicCustomEQ = micCustomIndex, append([]int(nil), r.Bands...) })
+		return u.applyAPO(c)
 	case "sidetone":
 		a.updateConfig(func(c *Config) {
 			if r.On != nil {
@@ -205,7 +207,7 @@ func (u *trayUI) Do(r uiRequest) error {
 				c.Noise.GainDB = max(0, min(20, *r.GainDB))
 			}
 		})
-		return u.applyNoise(c.Noise)
+		return u.applyAPO(c)
 	case "noise.demoOff":
 		es, _ := u.eapoState()
 		if !es.Installed {
@@ -240,9 +242,11 @@ func (u *trayUI) Do(r uiRequest) error {
 	return nil
 }
 
-// applyNoise writes the Equalizer APO files and remembers the outcome.
-func (u *trayUI) applyNoise(nc NoiseConfig) error {
-	st, err := eapoApply(nc, u.a.lg.Printf)
+// applyAPO writes the Equalizer APO files (noise suppression, mic EQ, gain) and
+// remembers the outcome.
+func (u *trayUI) applyAPO(c Config) error {
+	nc := c.Noise
+	st, err := eapoApply(nc, c.micEQ(), u.a.lg.Printf)
 	u.mu.Lock()
 	u.eapo, u.eapoAt = st, time.Now()
 	u.eapoErr = ""
@@ -265,8 +269,8 @@ func (u *trayUI) applyNoise(nc NoiseConfig) error {
 func (a *trayApp) keepNoise() {
 	for {
 		c := a.config()
-		if c.Noise.Enabled || c.Noise.GainDB != 0 {
-			if _, err := eapoApply(c.Noise, a.lg.Printf); err != nil {
+		if c.Noise.Enabled || c.Noise.GainDB != 0 || c.micEQ() != nil {
+			if _, err := eapoApply(c.Noise, c.micEQ(), a.lg.Printf); err != nil {
 				a.lg.Printf("Equalizer APO: %v", err)
 			}
 		}

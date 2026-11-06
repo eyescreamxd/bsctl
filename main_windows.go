@@ -26,10 +26,9 @@ const usage = `bsctl %s — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и M
   bsctl eq <пресет>        custom | autoeq | game | movie | music | apex | csgo | valorant | fortnite | cod
   bsctl eq 0,0,1,2,...     свой EQ: 10 полос в дБ (31,63,125,250,500,1k,2k,4k,8k,16k), -12..12
   bsctl sidetone on|off [N] самопрослушивание, N — громкость 0-100 (по умолчанию 50)
-  bsctl mic <номер>        пресет EQ микрофона в гарнитуре (3 = Conference)
   bsctl monitor [сек]      записать в лог все события от гарнитуры (диагностика)
-  bsctl miceq <пресет>     эквалайзер микрофона: default | micboost | broadcast | conference
-  bsctl miceq 0,0,1,...    свой эквалайзер микрофона, 10 полос в дБ
+  bsctl miceq <пресет>     эквалайзер микрофона через Equalizer APO: default | micboost | broadcast | conference
+  bsctl miceq 0,0,1,...    свой эквалайзер микрофона, 10 полос в дБ (через Equalizer APO)
 
 Шумоподавление (Equalizer APO: RNNoise или DeepFilterNet):
   bsctl eapo               состояние: APO, микрофон, частота, конфиг (только чтение)
@@ -162,21 +161,6 @@ func runCLI(args []string, cfg *Config, lg *log.Logger) error {
 			}
 			return nil
 		})
-	case "mic":
-		var n int
-		if len(args) < 2 {
-			return fmt.Errorf("bsctl mic <номер>")
-		}
-		if _, err := fmt.Sscan(args[1], &n); err != nil || n < 0 || n > 255 {
-			return fmt.Errorf("номер пресета 0..255")
-		}
-		cfg.MicPreset = n
-		if err := saveConfig(cfg); err != nil {
-			return err
-		}
-		return withHeadset(cfg, lg, func(hs *Headset) error {
-			return hs.set(cmdMicPreset, byte(n))
-		})
 	case "miceq":
 		if len(args) < 2 {
 			return fmt.Errorf("bsctl miceq default|micboost|broadcast|conference или 10 значений через запятую")
@@ -193,18 +177,15 @@ func runCLI(args []string, cfg *Config, lg *log.Logger) error {
 		if err := saveConfig(cfg); err != nil {
 			return err
 		}
-		return withHeadset(cfg, lg, func(hs *Headset) error {
-			hs.Verbose = true
-			if err := hs.SetMicEQ(cfg.MicPreset, cfg.MicCustomEQ); err != nil {
-				return err
-			}
-			if idx, bands, err := hs.MicEQ(); err == nil {
-				lg.Printf("в гарнитуре: пресет микрофона %d, полосы %v", idx, bands)
-			} else if idx >= 0 {
-				lg.Printf("в гарнитуре: пресет микрофона %d (полосы не прочитать: %v)", idx, err)
-			}
-			return nil
-		})
+		st, err := eapoApply(cfg.Noise, cfg.micEQ(), lg.Printf)
+		if err != nil {
+			return err
+		}
+		if p := st.eapoProblem(NoiseConfig{}); p != "" {
+			return fmt.Errorf("эквалайзер микрофона работает через Equalizer APO: %s", p)
+		}
+		lg.Printf("эквалайзер микрофона (Equalizer APO): %v", cfg.micEQ())
+		return nil
 	case "eapo":
 		return eapoInfo(cfg, lg)
 	case "ns":
@@ -227,7 +208,7 @@ func runCLI(args []string, cfg *Config, lg *log.Logger) error {
 		if err := saveConfig(cfg); err != nil {
 			return err
 		}
-		st, err := eapoApply(cfg.Noise, lg.Printf)
+		st, err := eapoApply(cfg.Noise, cfg.micEQ(), lg.Printf)
 		if err != nil {
 			return err
 		}

@@ -124,7 +124,7 @@ footer { color: var(--muted); font-size: 12px; display: flex; align-items: cente
 
   <section class="card">
     <h2>Микрофон</h2>
-    <h3>Эквалайзер в гарнитуре</h3>
+    <h3>Эквалайзер (через Equalizer APO)</h3>
     <div class="pills" id="micPresets"></div>
     <div class="eq" id="eqMic"></div>
     <p class="note" id="micNote"></p>
@@ -279,7 +279,7 @@ function render(s, fromAction) {
   // mic
   pills($("micPresets"), s.mic.presets, (p) => p.index === s.mic.preset, (p) => send({ op: "mic.preset", index: p.index }));
   eqMic.set(s.mic.bands);
-  $("micNote").textContent = s.mic.note || "Пресеты зашиты в гарнитуру; движение ползунка включает «Свой».";
+  $("micNote").textContent = s.mic.note || "Слышат собеседники; в самопрослушивании не слышно — оно идёт внутри гарнитуры. Движение ползунка включает «Свой».";
 
   // noise
   const n = s.noise;

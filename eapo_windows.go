@@ -219,8 +219,9 @@ func writeIfChanged(path string, data []byte) (bool, error) {
 
 func crlf(s string) []byte { return []byte(strings.ReplaceAll(s, "\n", "\r\n")) }
 
-// eapoApply writes bsctl.txt (and config.txt on first use) for the given settings.
-func eapoApply(nc NoiseConfig, lg logf) (eapoStatus, error) {
+// eapoApply writes bsctl.txt (and config.txt on first use) for the given settings;
+// micEQ is the mic EQ curve, nil when flat.
+func eapoApply(nc NoiseConfig, micEQ []int, lg logf) (eapoStatus, error) {
 	eapoMu.Lock()
 	defer eapoMu.Unlock()
 	st := eapoDetect()
@@ -238,7 +239,7 @@ func eapoApply(nc NoiseConfig, lg logf) (eapoStatus, error) {
 		want.Enabled = false // the plugin would not start or would garble the stream
 	}
 	if st.Mic == nil {
-		want = NoiseConfig{}
+		want, micEQ = NoiseConfig{}, nil
 	}
 	dll := filepath.Join(st.ConfigDir, eapoDLLDir, eng.DLL)
 	if want.Enabled {
@@ -251,14 +252,18 @@ func eapoApply(nc NoiseConfig, lg logf) (eapoStatus, error) {
 	if st.Mic != nil {
 		mic = *st.Mic
 	}
-	if changed, err := writeIfChanged(filepath.Join(st.ConfigDir, eapoOwnFile), crlf(eapoOwnConfig(mic, want, dll))); err != nil {
+	if changed, err := writeIfChanged(filepath.Join(st.ConfigDir, eapoOwnFile), crlf(eapoOwnConfig(mic, want, micEQ, dll))); err != nil {
 		return st, fmt.Errorf("запись %s: %w", eapoOwnFile, err)
 	} else if changed {
 		what := "выключен"
 		if want.Enabled {
 			what = eng.Title
 		}
-		lg("Equalizer APO: %s обновлён (шумодав: %s, усиление %s дБ)", eapoOwnFile, what, trimFloat(want.GainDB))
+		eq := "ровный"
+		if micEQ != nil {
+			eq = fmt.Sprint(micEQ)
+		}
+		lg("Equalizer APO: %s обновлён (шумодав: %s, эквалайзер: %s, усиление %s дБ)", eapoOwnFile, what, eq, trimFloat(want.GainDB))
 	}
 	mainPath := filepath.Join(st.ConfigDir, "config.txt")
 	cur, _ := os.ReadFile(mainPath)

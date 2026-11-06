@@ -177,6 +177,21 @@ func (c *Config) effectiveEQ() (byte, byte, []int) {
 	return p.Group, p.Index, bands
 }
 
+// micEQ returns the mic EQ curve Equalizer APO applies: the preset curve or the
+// custom bands; nil when the curve is flat.
+func (c *Config) micEQ() []int {
+	bands := c.MicCustomEQ
+	if p, ok := findMicPreset(c.MicPreset); ok && p.Bands != nil {
+		bands = p.Bands
+	}
+	for _, v := range bands {
+		if v != 0 {
+			return bands
+		}
+	}
+	return nil
+}
+
 func newLogger(alsoStdout bool) *log.Logger {
 	path := logPath()
 	if st, err := os.Stat(path); err == nil && st.Size() > 2<<20 {

@@ -38,16 +38,16 @@ func TestEAPOMainConfig(t *testing.T) {
 
 func TestEAPOOwnConfig(t *testing.T) {
 	mic := eapoMic{GUID: "{a1b2}", Name: "Razer BlackShark V2 Pro", Connection: "Микрофон", SampleRate: 48000}
-	s := eapoOwnConfig(mic, NoiseConfig{Enabled: true, GainDB: 6}, `C:\Program Files\EqualizerAPO\config\bsctl\rnnoise_mono.dll`)
+	s := eapoOwnConfig(mic, NoiseConfig{Enabled: true, GainDB: 6}, nil, `C:\Program Files\EqualizerAPO\config\bsctl\rnnoise_mono.dll`)
 	for _, want := range []string{"Device: {a1b2}\n", "Stage: capture\n", `VSTPlugin: Library "C:\Program Files\EqualizerAPO\config\bsctl\rnnoise_mono.dll"` + "\n", "Preamp: 6 dB\n", "Stage: post-mix capture\nDevice: all\n"} {
 		if !strings.Contains(s, want) {
 			t.Errorf("missing %q in:\n%s", want, s)
 		}
 	}
-	if s := eapoOwnConfig(mic, NoiseConfig{}, "x"); strings.Contains(s, "Device:") || strings.Contains(s, "VSTPlugin") {
+	if s := eapoOwnConfig(mic, NoiseConfig{}, nil, "x"); strings.Contains(s, "Device:") || strings.Contains(s, "VSTPlugin") {
 		t.Errorf("disabled config has commands:\n%s", s)
 	}
-	if s := eapoOwnConfig(mic, NoiseConfig{GainDB: 3.5}, "x"); strings.Contains(s, "VSTPlugin") || !strings.Contains(s, "Preamp: 3.5 dB") {
+	if s := eapoOwnConfig(mic, NoiseConfig{GainDB: 3.5}, nil, "x"); strings.Contains(s, "VSTPlugin") || !strings.Contains(s, "Preamp: 3.5 dB") {
 		t.Errorf("gain only:\n%s", s)
 	}
 	if strings.Contains(s, "Preamp: 6.02") {
@@ -57,7 +57,7 @@ func TestEAPOOwnConfig(t *testing.T) {
 
 func TestEAPOOwnConfigDeepFilterNet(t *testing.T) {
 	mono := eapoMic{GUID: "{a1b2}", Name: "Razer BlackShark V2 Pro", SampleRate: 48000, Format: waveFormat{0xFFFE, 1, 16, 48000}}
-	s := eapoOwnConfig(mono, NoiseConfig{Enabled: true, Engine: "deepfilternet", GainDB: 3}, `C:\x\alt_denoiser.dll`)
+	s := eapoOwnConfig(mono, NoiseConfig{Enabled: true, Engine: "deepfilternet", GainDB: 3}, nil, `C:\x\alt_denoiser.dll`)
 	// order matters: compensation before the plugin, user gain after it
 	i, j, k := strings.Index(s, "Preamp: 6.02 dB\n"), strings.Index(s, `VSTPlugin: Library "C:\x\alt_denoiser.dll"`), strings.Index(s, "Preamp: 3 dB\n")
 	if i < 0 || j < 0 || k < 0 || !(i < j && j < k) {
@@ -65,7 +65,7 @@ func TestEAPOOwnConfigDeepFilterNet(t *testing.T) {
 	}
 	stereo := mono
 	stereo.Format.Channels = 2
-	if s := eapoOwnConfig(stereo, NoiseConfig{Enabled: true, Engine: "deepfilternet"}, "x"); strings.Contains(s, "6.02") {
+	if s := eapoOwnConfig(stereo, NoiseConfig{Enabled: true, Engine: "deepfilternet"}, nil, "x"); strings.Contains(s, "6.02") {
 		t.Errorf("stereo mic needs no compensation:\n%s", s)
 	}
 	if e := findEngine("nope"); e.Key != "rnnoise" {
@@ -108,5 +108,42 @@ func TestParseWaveFormat(t *testing.T) {
 	}
 	if s := (waveFormat{0xFFFE, 1, 16, 48000}).String(); s != "48000 Гц, 1 кан., 16 бит" {
 		t.Errorf("String: %q", s)
+	}
+}
+
+func TestEAPOOwnConfigMicEQ(t *testing.T) {
+	mic := eapoMic{GUID: "{a1b2}", Name: "Razer BlackShark V2 Pro", SampleRate: 48000}
+	eq := []int{-8, -7, -5, -3, -1, 1, 3, 2, 1, 0}
+	// EQ alone is enough to target the mic
+	s := eapoOwnConfig(mic, NoiseConfig{}, eq, "x")
+	want := "GraphicEQ: 31 -8; 63 -7; 125 -5; 250 -3; 500 -1; 1000 1; 2000 3; 4000 2; 8000 1; 16000 0\n"
+	if !strings.Contains(s, "Device: {a1b2}\n") || !strings.Contains(s, want) {
+		t.Errorf("EQ only:\n%s", s)
+	}
+	// order: plugin, then EQ, then the user gain
+	s = eapoOwnConfig(mic, NoiseConfig{Enabled: true, GainDB: 4}, eq, "x")
+	i, j, k := strings.Index(s, "VSTPlugin:"), strings.Index(s, "GraphicEQ:"), strings.Index(s, "Preamp: 4 dB")
+	if i < 0 || j < 0 || k < 0 || !(i < j && j < k) {
+		t.Errorf("bad order:\n%s", s)
+	}
+}
+
+func TestConfigMicEQ(t *testing.T) {
+	c := defaultConfig()
+	c.MicPreset = 0
+	if eq := c.micEQ(); eq != nil {
+		t.Errorf("default preset is flat, got %v", eq)
+	}
+	c.MicPreset = 3
+	if eq := c.micEQ(); len(eq) != 10 || eq[0] != -8 {
+		t.Errorf("conference curve: %v", eq)
+	}
+	c.MicPreset, c.MicCustomEQ = micCustomIndex, []int{0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+	if eq := c.micEQ(); eq != nil {
+		t.Errorf("flat custom must give nil, got %v", eq)
+	}
+	c.MicCustomEQ = []int{-12, 0, 0, 0, 0, 0, 0, 0, 0, 3}
+	if eq := c.micEQ(); len(eq) != 10 || eq[0] != -12 || eq[9] != 3 {
+		t.Errorf("custom: %v", eq)
 	}
 }

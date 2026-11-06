@@ -192,7 +192,6 @@ type hsWorker struct {
 	connected bool
 	battery   int
 	charging  bool
-	micEQNote string // shown in the settings window
 
 	hold        *micHold // keeps the mic recording while sidetone is on
 	holdErr     string
@@ -540,26 +539,6 @@ func (w *hsWorker) handle(r string) {
 			if err != nil {
 				w.lg.Printf("эквалайзер: %v", err)
 			}
-		}
-	case r == "miceq":
-		w.drainSame(r)
-		if !w.ready() {
-			return
-		}
-		c := w.app.config()
-		err := w.hs.SetMicEQ(c.MicPreset, c.MicCustomEQ)
-		w.mu.Lock()
-		switch {
-		case errors.Is(err, errMicEQUnsupported):
-			w.micEQNote = "Гарнитура не приняла свой эквалайзер микрофона — работают только пресеты."
-		case err != nil:
-			w.micEQNote = "Эквалайзер микрофона: " + err.Error()
-		default:
-			w.micEQNote = ""
-		}
-		w.mu.Unlock()
-		if err != nil {
-			w.lg.Printf("эквалайзер микрофона: %v", err)
 		}
 	case r == "sidetone-cfg":
 		w.drainSame(r)

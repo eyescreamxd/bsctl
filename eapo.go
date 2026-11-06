@@ -1,7 +1,9 @@
 package main
 
-// Equalizer APO integration: noise suppression (a VST plugin: RNNoise or
-// DeepFilterNet) and extra gain for the BlackShark microphone. The tray writes its
+// Equalizer APO integration for the BlackShark microphone: noise suppression
+// (a VST plugin: RNNoise or DeepFilterNet), the mic EQ and extra gain. The headset
+// acknowledges its own mic EQ commands but does not change the sound, so the
+// mic EQ lives here. The tray writes its
 // own file bsctl.txt in the APO config folder and includes it from config.txt;
 // nothing else of the user's APO setup is touched (except the stock demo config).
 
@@ -68,12 +70,16 @@ type eapoMic struct {
 	APOOnIt    bool   // Equalizer APO is installed on this endpoint
 }
 
-// eapoOwnConfig renders bsctl.txt.
-func eapoOwnConfig(mic eapoMic, nc NoiseConfig, dllPath string) string {
+// micEQFreqs are the centre frequencies of the 10 mic EQ bands, Hz.
+var micEQFreqs = []int{31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000}
+
+// eapoOwnConfig renders bsctl.txt: noise suppression plugin, then the mic EQ
+// (nil = flat, no line), then the extra gain.
+func eapoOwnConfig(mic eapoMic, nc NoiseConfig, micEQ []int, dllPath string) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s: микрофон гарнитуры. Файл перезаписывается треем, правки делай в %s.\n", eapoMarker, eapoUserFile)
-	if !nc.Enabled && nc.GainDB == 0 {
-		b.WriteString("# Шумоподавление и усиление выключены.\n")
+	if !nc.Enabled && nc.GainDB == 0 && micEQ == nil {
+		b.WriteString("# Шумоподавление, эквалайзер и усиление выключены.\n")
 		return b.String()
 	}
 	fmt.Fprintf(&b, "# %s (%s), %d Гц\n", mic.Name, mic.Connection, mic.SampleRate)
@@ -87,6 +93,16 @@ func eapoOwnConfig(mic eapoMic, nc NoiseConfig, dllPath string) string {
 			fmt.Fprintf(&b, "Preamp: %.2f dB\n", eng.MonoGainDB)
 		}
 		fmt.Fprintf(&b, "VSTPlugin: Library \"%s\"\n", dllPath)
+	}
+	if micEQ != nil {
+		b.WriteString("# Эквалайзер микрофона\n")
+		pts := make([]string, 0, len(micEQ))
+		for i, v := range micEQ {
+			if i < len(micEQFreqs) {
+				pts = append(pts, fmt.Sprintf("%d %d", micEQFreqs[i], v))
+			}
+		}
+		fmt.Fprintf(&b, "GraphicEQ: %s\n", strings.Join(pts, "; "))
 	}
 	if nc.GainDB != 0 {
 		fmt.Fprintf(&b, "Preamp: %s dB\n", trimFloat(nc.GainDB))

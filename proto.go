@@ -38,7 +38,7 @@ const (
 	cmdMicPresetG  = 0x16 // get mic EQ preset index
 	cmdMicEQGet    = 0x17 // get mic custom EQ, 10 bands
 	cmdMicPreset   = 0x96 // set mic EQ preset index: 0 default, 1 boost, 2 broadcast, 3 conference, 255 custom
-	cmdMicCustomEQ = 0x97 // set mic custom EQ, 10 bands, signed dB
+	cmdMicCustomEQ = 0x97 // set mic custom EQ, 10 bands, signed dB: acked, but the sound does not change
 	cmdSidetoneGet = 0x18 // get sidetone on/off
 	cmdSidetoneVG  = 0x19 // get sidetone volume, 0..15
 	cmdSidetone    = 0x98 // set sidetone on/off
@@ -67,7 +67,6 @@ func setBlock(cmd, value byte) []byte  { return []byte{cmd, 0, 1, value} }
 func remoteBlock(remote bool) []byte   { return []byte{cmdRemoteMode, boolByte(remote)} }
 func firmwareBlock() []byte            { return []byte{0x01, 0xC2, 0x03, 0xF8, 0x5F, 0x04} }
 func customEQBlock(bands []int) []byte { return bandsBlock(cmdCustomEQ, bands) }
-func micEQBlock(bands []int) []byte    { return bandsBlock(cmdMicCustomEQ, bands) }
 
 func bandsBlock(cmd byte, bands []int) []byte {
 	b := []byte{cmd, 0, 10}
@@ -208,8 +207,8 @@ var presets = []Preset{
 
 var bandNames = []string{"31", "63", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"}
 
-// MicPreset is a mic EQ preset of the headset. Curves are from the Synapse UI
-// (for display); the headset applies its own curve for indexes 0..3.
+// MicPreset is a mic EQ preset. Curves are from the Synapse UI; Equalizer APO
+// applies them (the headset's own mic EQ does not change the sound).
 type MicPreset struct {
 	Key   string
 	Title string

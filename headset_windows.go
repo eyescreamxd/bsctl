@@ -354,47 +354,6 @@ func (h *Headset) SetEQ(group, index byte, bands []int) error {
 	return nil
 }
 
-// errMicEQUnsupported: the headset did not answer the mic custom EQ command.
-var errMicEQUnsupported = errors.New("гарнитура не принимает свой эквалайзер микрофона")
-
-// SetMicEQ sets the mic EQ preset; for 255 (custom) also the 10 bands, like Synapse.
-func (h *Headset) SetMicEQ(index int, bands []int) error {
-	if err := h.set(cmdMicPreset, byte(index)); err != nil {
-		return err
-	}
-	if index != micCustomIndex {
-		return nil
-	}
-	if err := validateBands(bands); err != nil {
-		return err
-	}
-	// One short try: older firmware may not know this command.
-	if _, err := h.tx(targetHeadset, micEQBlock(bands), matchOp(cmdMicCustomEQ), 900*time.Millisecond, 1); err != nil {
-		if errors.Is(err, errNoResponse) {
-			return errMicEQUnsupported
-		}
-		return err
-	}
-	return nil
-}
-
-// MicEQ reads the mic preset index and the custom bands.
-func (h *Headset) MicEQ() (int, []int, error) {
-	d, err := h.get(cmdMicPresetG)
-	if err != nil || len(d) == 0 {
-		return -1, nil, err
-	}
-	r, err := h.tx(targetHeadset, getBlock(cmdMicEQGet), matchOp(cmdMicEQGet), 900*time.Millisecond, 1)
-	if err != nil {
-		return int(d[0]), nil, err
-	}
-	bands := make([]int, 0, 10)
-	for _, b := range r.Data {
-		bands = append(bands, int(int8(b)))
-	}
-	return int(d[0]), bands, nil
-}
-
 // Apply sends the whole config in the same order Synapse does.
 func (h *Headset) Apply(c *Config) error {
 	var errs []string
@@ -407,17 +366,15 @@ func (h *Headset) Apply(c *Config) error {
 	}
 	group, index, bands := c.effectiveEQ()
 	step("EQ off-board preset", func() error { return h.set(cmdEQStatusSet, 0) })
-	step("микрофон", func() error { return h.SetMicEQ(c.MicPreset, c.MicCustomEQ) })
+	// The headset acks its mic EQ (presets and 0x97 bands) but the sound does not
+	// change; keep it neutral, the mic EQ is done by Equalizer APO.
+	step("микрофон", func() error { return h.set(cmdMicPreset, 0) })
 	step("самопрослушивание", func() error { return h.SetSidetone(c.Sidetone, c.SidetoneLevel) })
 	step("автовыключение", func() error { return h.set(cmdAutoOffSet, byte(c.AutoPowerOffMin)) })
 	step("эквалайзер", func() error { return h.SetEQ(group, index, bands) })
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
 	}
-	mic := fmt.Sprint(c.MicPreset)
-	if c.MicPreset == micCustomIndex {
-		mic = fmt.Sprintf("custom%v", c.MicCustomEQ)
-	}
-	h.log.Printf("applied: preset=%s eq=%v mic=%s sidetone=%v/%d%% autooff=%d", c.Preset, bands, mic, c.Sidetone, c.SidetoneLevel, c.AutoPowerOffMin)
+	h.log.Printf("applied: preset=%s eq=%v sidetone=%v/%d%% autooff=%d", c.Preset, bands, c.Sidetone, c.SidetoneLevel, c.AutoPowerOffMin)
 	return nil
 }
