@@ -3,6 +3,7 @@
 package autostart
 
 import (
+	"log"
 	"os"
 	"strings"
 
@@ -49,4 +50,27 @@ func Enabled() bool {
 	defer k.Close()
 	_, _, err = k.GetStringValue(runValue)
 	return err == nil
+}
+
+// Heal points an existing Run value at the running BlackSharkTray.exe when it names
+// another file (the exe was moved, e.g. into dist). No value: autostart stays off.
+func Heal(lg *log.Logger) {
+	exe, err := os.Executable()
+	if err != nil || !strings.EqualFold(baseName(exe), TrayExe) {
+		return
+	}
+	k, err := registry.OpenKey(registry.CURRENT_USER, runKey, registry.QUERY_VALUE|registry.SET_VALUE)
+	if err != nil {
+		return
+	}
+	defer k.Close()
+	v, _, err := k.GetStringValue(runValue)
+	if err != nil || !needsHeal(v, exe) {
+		return
+	}
+	if err := k.SetStringValue(runValue, `"`+exe+`"`); err != nil {
+		lg.Printf("автозапуск: не удалось обновить путь: %v", err)
+		return
+	}
+	lg.Printf("автозапуск: путь обновлён на %s (был %s)", exe, v)
 }

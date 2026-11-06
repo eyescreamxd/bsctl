@@ -58,6 +58,7 @@ func Run() {
 	}
 	a := newTrayApp(config.NewLogger(false))
 	a.start()
+	autostart.Heal(a.lg) // the exe may have moved (e.g. into dist)
 	if err := a.tray.Run(); err != nil {
 		a.lg.Printf("трей: %v", err)
 	}
