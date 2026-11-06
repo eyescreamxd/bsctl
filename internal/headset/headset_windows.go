@@ -390,7 +390,7 @@ func (h *Headset) Apply(c Settings) error {
 	}
 	group, index, bands := c.Group, c.Index, c.Bands
 	step("EQ off-board preset", func() error { return h.set(cmdEQStatusSet, 0) })
-	// The headset acks its mic EQ (Presets and 0x97 bands) but the sound does not
+	// The headset acks its mic EQ (presets and 0x97 bands) but the sound does not
 	// change; keep it neutral, the mic EQ is done by Equalizer APO.
 	step("микрофон", func() error { return h.set(cmdMicPreset, 0) })
 	step("самопрослушивание", func() error { return h.SetSidetone(c.Sidetone, c.SidetoneLevel) })
