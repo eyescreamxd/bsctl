@@ -1,4 +1,4 @@
-module bsctl
+module github.com/eyescreamxd/bsctl
 
 go 1.26.0
 
