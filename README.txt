@@ -1,4 +1,4 @@
-bsctl 0.8.0 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
+bsctl 0.8.1 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
 
 Где что лежит
   Установщик bsctl-setup-X.Y.Z.exe ставит программу в %LOCALAPPDATA%\Programs\bsctl
