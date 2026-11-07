@@ -5,6 +5,8 @@ setlocal
 cd /d "%~dp0.."
 set CGO_ENABLED=0
 if not exist dist mkdir dist
+rem bsctl.json next to the exe keeps this build portable (state in dist, no updates)
+if not exist dist\bsctl.json echo {}> dist\bsctl.json
 go build -trimpath -ldflags "-s -w" -o dist\bsctl.exe ./cmd/bsctl
 if errorlevel 1 goto :fail
 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o dist\BlackSharkTray.new.exe ./cmd/bsctl

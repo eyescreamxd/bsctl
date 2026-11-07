@@ -34,14 +34,19 @@
 
 ## Установка и обновление
 
-1. Собери программу: `scripts\build.cmd` (см. [Сборка](#сборка)). Всё рабочее окажется в папке `dist\`:
-   `bsctl.exe`, `BlackSharkTray.new.exe`, плагины `rnnoise\` и `dfn\`, `update.cmd`, диагностические скрипты и `README.txt`.
-2. Закрой Synapse и запусти `dist\update.cmd`: он переименует `BlackSharkTray.new.exe` в `BlackSharkTray.exe` и запустит трей.
-   Автозапуск включается в меню трея, пункт «Запускать с Windows» (ключ `HKCU\…\Run`). Если exe переехал,
-   трей сам поправит путь в этом ключе.
-3. Обновление: снова `scripts\build.cmd`, затем `dist\update.cmd`. Скрипт закроет старый трей, подменит exe и запустит новый.
+1. Скачай `bsctl-setup-X.Y.Z.exe` со страницы [Releases](https://github.com/eyescreamxd/bsctl/releases) и запусти.
+   Прав администратора не нужно: программа ставится в `%LOCALAPPDATA%\Programs\bsctl`, в меню «Пуск» появляется
+   «BlackShark Tray». Установщик не подписан, поэтому SmartScreen попросит нажать «Подробнее» → «Выполнить в любом случае».
+2. Галочка «Запускать трей при входе в Windows» в установщике включает автозапуск (ключ `HKCU\…\Run`), потом его
+   переключает меню трея. Если exe переехал, трей сам поправит путь в этом ключе.
+3. Обновления трей проверяет сам, раз в 6 часов. Когда выйдет новая версия, в меню наушников появится
+   «Установить обновление X.Y.Z»: трей скачает установщик, сверит SHA-256, тихо поставит его и перезапустится.
+4. Удаление — «Параметры → Приложения». Деинсталлятор убирает автозапуск и свои файлы из Equalizer APO
+   (`bsctl.txt`, строку `Include: bsctl.txt`, плагины). Настройки остаются.
 
-Настройки хранятся в `bsctl.json`, лог в `bsctl.log`; оба файла лежат рядом с exe (в `dist\`) и создаются сами.
+Настройки хранятся в `%LOCALAPPDATA%\bsctl\bsctl.json`, лог — там же в `bsctl.log`; оба файла создаются сами.
+Исключение — портативная сборка: если рядом с exe лежит `bsctl.json`, настройки и лог живут рядом с exe,
+а обновления не проверяются. Так работает сборка для разработки в `dist\`.
 
 ## Трей
 
@@ -165,8 +170,15 @@ go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o di
 С Linux или macOS собирается так же, с `GOOS=windows GOARCH=amd64`. Тесты протокола, конфигов Equalizer APO и окна настроек
 не требуют Windows: `go test ./...`. Код под Windows проверяется командой `GOOS=windows go vet ./...`.
 
+Сборка в `dist\` портативная: `build.cmd` кладёт туда `bsctl.json`, если его нет. Запуск — `dist\update.cmd`.
+
 Проверки перед выпуском — `scripts\check.cmd`: `gofmt`, `go vet` и `go test` для Windows, `go vet` и сборка для Linux,
 [staticcheck](https://staticcheck.dev) v0.8.2 для обеих систем.
+
+**Выпуск версии.** Подними версию в `internal/version/version.go` и в первой строке `README.txt`, закоммить и
+запушь тег: `git tag v0.8.0 && git push origin v0.8.0`. Workflow `release` проверит, что тег совпадает с версией,
+прогонит проверки, соберёт exe и `bsctl-setup-0.8.0.exe` (Inno Setup) и создаст GitHub Release с установщиком и `.sha256`.
+Ручной запуск workflow (Actions → release → Run workflow) собирает установщик только как артефакт, без релиза.
 
 ## Как устроено
 
@@ -180,8 +192,11 @@ go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o di
 | `internal/ui/` (+ `web/index.html`), `internal/tray/` | окно настроек: HTTP-сервер и страница; связь с треем и место окна |
 | `internal/eapo/` | Equalizer APO: `bsctl.txt`, движки шумодава, формат микрофона через MMDevice API |
 | `internal/audio/` | держит микрофон открытым для самопрослушивания (winmm) |
-| `internal/config/`, `internal/paths/`, `internal/version/` | `bsctl.json` и лог, папка exe, версия |
+| `internal/config/`, `internal/paths/`, `internal/version/` | `bsctl.json` и лог, папки программы и состояния, версия |
 | `internal/autostart/` | автозапуск через `HKCU\…\Run` |
+| `internal/update/` | проверка релизов на GitHub, скачивание установщика с проверкой SHA-256 |
+| `installer/bsctl.iss` | установщик Inno Setup: `%LOCALAPPDATA%\Programs\bsctl`, без прав администратора |
+| `.github/workflows/release.yml` | релиз по тегу `vX.Y.Z`: проверки, сборка, установщик, GitHub Release |
 | `third_party/rnnoise/`, `third_party/dfn/` | готовые VST2-плагины шумодава с лицензиями |
 | `scripts/` | сборка, проверки, `update.cmd` и диагностические скрипты |
 | `dist/` | результат сборки, в git не хранится |

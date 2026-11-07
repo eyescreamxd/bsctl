@@ -317,3 +317,32 @@ func installDLL(src, dst string) error {
 
 // Logf is a printf-like logger.
 type Logf func(format string, args ...any)
+
+// Uninstall removes what the tray put into Equalizer APO: the include line in
+// config.txt, bsctl.txt and the copied plugins. user.txt and the backup of the
+// stock config stay. A plugin in use by audiodg may stay until the next reboot.
+func Uninstall(lg Logf) error {
+	eapoMu.Lock()
+	defer eapoMu.Unlock()
+	_, dir, ok := Dirs()
+	if !ok {
+		lg("Equalizer APO не найден — убирать нечего")
+		return nil
+	}
+	mainPath := filepath.Join(dir, "config.txt")
+	if cur, err := os.ReadFile(mainPath); err == nil {
+		if next, changed := removeOwnInclude(string(cur)); changed {
+			if err := os.WriteFile(mainPath, []byte(next), 0o644); err != nil {
+				return fmt.Errorf("запись config.txt: %w", err)
+			}
+			lg("Equalizer APO: строка Include: %s убрана из config.txt", OwnFile)
+		}
+	}
+	if err := os.Remove(filepath.Join(dir, OwnFile)); err == nil {
+		lg("Equalizer APO: %s удалён", OwnFile)
+	}
+	if err := os.RemoveAll(filepath.Join(dir, eapoDLLDir)); err != nil {
+		lg("Equalizer APO: плагины в %s удалятся не все (заняты?): %v", filepath.Join(dir, eapoDLLDir), err)
+	}
+	return nil
+}

@@ -17,6 +17,7 @@ import (
 	"github.com/eyescreamxd/bsctl/internal/eapo"
 	"github.com/eyescreamxd/bsctl/internal/headset"
 	"github.com/eyescreamxd/bsctl/internal/hid"
+	"github.com/eyescreamxd/bsctl/internal/paths"
 	"github.com/eyescreamxd/bsctl/internal/razer"
 	"github.com/eyescreamxd/bsctl/internal/tray"
 	"github.com/eyescreamxd/bsctl/internal/version"
@@ -55,8 +56,10 @@ const usage = `bsctl %s — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и M
 
   bsctl tray               значки в трее (то же, что BlackSharkTray.exe)
   bsctl autostart on|off   запуск трея при входе в Windows
+  bsctl uninstall-cleanup  убрать автозапуск и свои файлы из Equalizer APO (вызывает деинсталлятор)
 
-Настройки: bsctl.json, лог: bsctl.log — рядом с exe.
+Настройки: bsctl.json, лог: bsctl.log — в %%LOCALAPPDATA%%\bsctl,
+а у портативной сборки (bsctl.json лежит рядом с exe) — рядом с exe. Сейчас: %s
 `
 
 func main() {
@@ -65,7 +68,7 @@ func main() {
 		args = []string{defaultMode}
 	}
 	if len(args) == 0 {
-		fmt.Printf(usage, version.Version)
+		fmt.Printf(usage, version.Version, paths.StateDir())
 		return
 	}
 	if args[0] == "tray" {
@@ -240,8 +243,13 @@ func runCLI(args []string, cfg *config.Config, lg *log.Logger) error {
 		}
 		lg.Printf("автозапуск: %s", args[1])
 		return nil
+	case "uninstall-cleanup":
+		if err := autostart.Set(false); err != nil {
+			lg.Printf("автозапуск: %v", err)
+		}
+		return eapo.Uninstall(lg.Printf)
 	default:
-		fmt.Printf(usage, version.Version)
+		fmt.Printf(usage, version.Version, paths.StateDir())
 		return nil
 	}
 }

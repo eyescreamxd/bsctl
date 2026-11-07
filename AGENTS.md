@@ -74,17 +74,28 @@
 | `internal/audio/audio_windows.go` | waveIn: держит микрофон открытым для самопрослушивания |
 | `internal/config/config.go` | `bsctl.json`: умолчания, проверка, сохранение через `.tmp` и rename; `bsctl.log` |
 | `internal/autostart/` | ключ `HKCU\…\Run`; при старте трей переписывает путь, если exe переехал |
-| `internal/paths/`, `internal/version/` | папка exe; версия |
+| `internal/paths/`, `internal/version/` | папка exe, папка состояния (`StateDir`, портативный режим); версия |
+| `internal/update/` | последний релиз на GitHub, сравнение версий, скачивание установщика с проверкой SHA-256 |
+| `internal/tray/update_windows.go` | проверка обновлений раз в 6 часов, пункт меню, запуск установщика `/SILENT` и выход |
+| `installer/bsctl.iss` | Inno Setup (UTF-8 с BOM, CRLF): установка в `%LOCALAPPDATA%\Programs\bsctl` без UAC |
+| `.github/workflows/release.yml` | релиз по тегу `vX.Y.Z`; ручной запуск — только артефакт |
 | `scripts/` | `build.cmd` (сборка в `dist\`), `check.cmd`, `update.cmd`, диагностика `1-probe.cmd` … `5-dock-test.cmd` |
 
 ## Выдача пользователю
 
-- Пользователь работает в `Desktop\BlackShark\bsctl`, программа живёт в `dist\`: там exe, плагины `rnnoise\` и `dfn\`,
-  скрипты, `README.txt`, а также его `bsctl.json` и `bsctl.log`.
-- Выдача: `scripts\build.cmd` собирает в `dist\` и копирует туда плагины, скрипты и `README.txt`; пользователь запускает
-  `dist\update.cmd`. Запущенный `BlackSharkTray.exe` занят Windows, поэтому новый трей всегда собирается как
+- Два режима. **Установленный** (Inno Setup, `%LOCALAPPDATA%\Programs\bsctl`): состояние в `%LOCALAPPDATA%\bsctl\`,
+  трей сам проверяет релизы и ставит обновление по пункту меню. **Портативный** (рядом с exe лежит `bsctl.json`,
+  так собирается `dist\`): состояние рядом с exe, обновления не проверяются. Режим выбирает `paths.Portable()`.
+- Релиз: подними версию в `internal/version/version.go` и первой строке `README.txt`, закоммить, `git tag vX.Y.Z`,
+  `git push origin vX.Y.Z`. Workflow сверит тег с версией, прогонит проверки, соберёт установщик и создаст Release
+  с `bsctl-setup-X.Y.Z.exe` и `.sha256` (имена важны: их ищет `update.Release.Installer`). Репозиторий публичный:
+  трей читает `api.github.com` без токена.
+- Деинсталлятор вызывает `bsctl uninstall-cleanup`: автозапуск выкл, из APO убираются `Include: bsctl.txt`, `bsctl.txt`
+  и `config\bsctl\`. Установщик перед копированием закрывает все `BlackSharkTray.exe` (и портативный тоже).
+- Разработка: `scripts\build.cmd` собирает в `dist\` (портативно) и копирует туда плагины, скрипты и `README.txt`;
+  запуск — `dist\update.cmd`. Запущенный `BlackSharkTray.exe` занят Windows, поэтому новый трей всегда собирается как
   `BlackSharkTray.new.exe`, а `update.cmd` его подменяет. `bsctl.exe` можно перезаписывать.
-- После обновления посмотри `dist\bsctl.log`: там должны быть строки `tray X started` и
+- После обновления посмотри `bsctl.log` (в папке состояния): там должны быть строки `tray X started` и
   `Equalizer APO: <микрофон>, 48000 Гц, 1 кан., 16 бит [Windows Audio] …`. Если автозапуск смотрел на старый путь,
   там же будет `автозапуск: путь обновлён на …`.
 - `bsctl.json` и `bsctl.log` — состояние пользователя, их не перезаписывать.
@@ -93,7 +104,7 @@
   CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" -o dist/bsctl.exe ./cmd/bsctl
   CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o dist/BlackSharkTray.new.exe ./cmd/bsctl
   ```
-- GitHub: репозиторий `github.com/eyescreamxd/bsctl` уже есть, дальше обычный `git`.
+- GitHub: публичный репозиторий `github.com/eyescreamxd/bsctl`, дальше обычный `git`.
 
 ## Как проверять без железа
 

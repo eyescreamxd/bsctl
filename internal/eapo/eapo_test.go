@@ -127,3 +127,17 @@ func TestEAPOOwnConfigMicEQ(t *testing.T) {
 		t.Errorf("bad order:\n%s", s)
 	}
 }
+
+func TestRemoveOwnInclude(t *testing.T) {
+	cfg := "Preamp: -3 dB\r\nInclude: bsctl.txt\r\nInclude: user.txt\r\n"
+	got, changed := removeOwnInclude(cfg)
+	if !changed || got != "Preamp: -3 dB\r\nInclude: user.txt\r\n" {
+		t.Errorf("remove: %v %q", changed, got)
+	}
+	if _, changed := removeOwnInclude(got); changed {
+		t.Error("nothing to remove, but changed")
+	}
+	if got, _ := removeOwnInclude("Include: bsctl.txt"); got != "" {
+		t.Errorf("last line without newline: %q", got)
+	}
+}

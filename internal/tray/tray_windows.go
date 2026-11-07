@@ -47,6 +47,8 @@ type trayApp struct {
 	uiOnce sync.Once
 	ui     *trayUI
 	uiSrv  *ui.Server
+
+	upd *updateState // newer release, guarded by mu
 }
 
 // Run is BlackSharkTray: one tray per user session, blocks until the user quits.
@@ -128,6 +130,7 @@ func (a *trayApp) start() {
 		a.lg.Printf("Equalizer APO: %s", micFormatHint())
 	}
 	go a.keepNoise()
+	go a.watchUpdates()
 	go a.hs.run()
 	if a.ms != nil {
 		go a.ms.run()
@@ -649,9 +652,12 @@ func (a *trayApp) headsetMenu() []wintray.MenuItem {
 		noise = append(noise, wintray.MenuItem{Title: e.Title + " (" + e.Short + ")", Checked: cfg.Noise.Enabled && cur == key,
 			Action: func() { go a.setNoise(true, key) }})
 	}
-	return []wintray.MenuItem{
+	items := []wintray.MenuItem{
 		{Title: status, Disabled: true},
 		{Title: micLine, Disabled: true},
+	}
+	items = append(items, a.updateMenu()...)
+	return append(items, []wintray.MenuItem{
 		{Separator: true},
 		{Title: "Настройки (эквалайзеры, шумодав)…", Action: a.openSettings},
 		{Title: "Эквалайзер", Sub: eq},
@@ -670,7 +676,7 @@ func (a *trayApp) headsetMenu() []wintray.MenuItem {
 		}},
 		{Separator: true},
 		{Title: "Выход", Action: a.tray.Quit},
-	}
+	}...)
 }
 
 // ---------------- mouse and dock ----------------

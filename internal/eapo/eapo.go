@@ -179,6 +179,22 @@ func nextMainConfig(current string) (string, bool) {
 	return current + "Include: " + OwnFile + sep, true
 }
 
+// removeOwnInclude drops the "Include: bsctl.txt" lines (uninstall); false = nothing to drop.
+func removeOwnInclude(cfg string) (string, bool) {
+	lines := strings.SplitAfter(cfg, "\n")
+	out := lines[:0]
+	for _, l := range lines {
+		if includesFile(l, OwnFile) {
+			continue
+		}
+		out = append(out, l)
+	}
+	if len(out) == len(lines) {
+		return cfg, false
+	}
+	return strings.Join(out, ""), true
+}
+
 // HasDemoInclude: config.txt still pulls the installer's demo filter (bass boost).
 func HasDemoInclude(cfg string) bool { return includesFile(cfg, "example.txt") }
 

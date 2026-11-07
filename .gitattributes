@@ -6,5 +6,7 @@
 *.sum text eol=lf
 *.cmd text eol=crlf
 *.txt text eol=crlf
+*.iss text eol=crlf
+*.yml text eol=lf
 *.dll binary
 *.png binary

@@ -1,0 +1,77 @@
+# Release: push a tag vX.Y.Z (equal to internal/version and the first line of
+# README.txt). Manual run (workflow_dispatch) builds the installer as an artifact only.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Version
+        shell: bash
+        run: |
+          v=$(sed -n 's/^const Version = "\(.*\)"$/\1/p' internal/version/version.go)
+          head -1 README.txt | grep -q "^bsctl $v " || { echo "README.txt: first line has no version $v"; exit 1; }
+          if [ "$GITHUB_REF_TYPE" = tag ] && [ "v$v" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match version $v"; exit 1
+          fi
+          echo "VERSION=$v" >> "$GITHUB_ENV"
+
+      - name: Check
+        shell: bash
+        run: |
+          test -z "$(gofmt -l cmd internal)"
+          go vet ./...
+          GOOS=linux go vet ./...
+          go test ./...
+
+      - name: Build
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w" -o dist/bsctl.exe ./cmd/bsctl
+          go build -trimpath -ldflags "-s -w -H=windowsgui -X main.defaultMode=tray" -o dist/BlackSharkTray.exe ./cmd/bsctl
+
+      - name: Installer
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" installer\bsctl.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Checksum
+        shell: bash
+        run: |
+          cd out
+          f="bsctl-setup-$VERSION.exe"
+          sha256sum "$f" | sed 's/ \*/  /' > "$f.sha256"
+          cat "$f.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bsctl-setup-${{ env.VERSION }}
+          path: out/*
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" out/bsctl-setup-$VERSION.exe out/bsctl-setup-$VERSION.exe.sha256 \
+            --title "bsctl $VERSION" --generate-notes

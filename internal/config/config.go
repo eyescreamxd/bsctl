@@ -79,9 +79,9 @@ func Default() *Config {
 	}
 }
 
-// Path is bsctl.json next to the exe; LogPath is bsctl.log there.
-func Path() string    { return filepath.Join(paths.ExeDir(), "bsctl.json") }
-func LogPath() string { return filepath.Join(paths.ExeDir(), "bsctl.log") }
+// Path is bsctl.json in the state folder (paths.StateDir); LogPath is bsctl.log there.
+func Path() string    { return filepath.Join(paths.StateDir(), "bsctl.json") }
+func LogPath() string { return filepath.Join(paths.StateDir(), "bsctl.log") }
 
 // Load reads bsctl.json; a missing file is created with the defaults.
 func Load() (*Config, error) {
