@@ -33,6 +33,9 @@ func updateClient() update.Client {
 // watchUpdates checks GitHub soon after the start and then every few hours.
 // A portable build (dist) is a developer build: it is not updated.
 func (a *trayApp) watchUpdates() {
+	if n := update.RemoveInstallers(os.TempDir()); n > 0 {
+		a.lg.Printf("обновление: удалено старых установщиков: %d", n)
+	}
 	if paths.Portable() {
 		return
 	}

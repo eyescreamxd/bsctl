@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -181,4 +182,17 @@ func (c Client) Download(ctx context.Context, r Release, dst string) (err error)
 		return errors.New("контрольная сумма установщика не совпала")
 	}
 	return nil
+}
+
+// RemoveInstallers deletes installers left in dir by earlier updates
+// (bsctl-setup-*.exe) and returns how many went. A file still in use stays.
+func RemoveInstallers(dir string) int {
+	files, _ := filepath.Glob(filepath.Join(dir, "bsctl-setup-*.exe"))
+	n := 0
+	for _, f := range files {
+		if os.Remove(f) == nil {
+			n++
+		}
+	}
+	return n
 }

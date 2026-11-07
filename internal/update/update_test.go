@@ -106,3 +106,19 @@ func TestInstallerMissing(t *testing.T) {
 		t.Error("installer without .sha256 accepted")
 	}
 }
+
+func TestRemoveInstallers(t *testing.T) {
+	dir := t.TempDir()
+	for _, n := range []string{"bsctl-setup-0.8.0.exe", "bsctl-setup-0.8.1.exe", "other.exe", "bsctl-setup-0.8.1.exe.sha256"} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if n := RemoveInstallers(dir); n != 2 {
+		t.Errorf("removed %d, want 2", n)
+	}
+	left, _ := filepath.Glob(filepath.Join(dir, "*"))
+	if len(left) != 2 {
+		t.Errorf("left: %v", left)
+	}
+}
