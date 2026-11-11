@@ -1,4 +1,4 @@
-bsctl 0.8.2 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
+bsctl 0.8.3 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pro без Synapse
 
 Где что лежит
   Установщик bsctl-setup-X.Y.Z.exe ставит программу в %LOCALAPPDATA%\Programs\bsctl
@@ -21,6 +21,12 @@ bsctl 0.8.2 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pr
   Левый клик по любому значку — окно настроек, правый — меню.
   Подсветка дока показывает заряд мыши, как в Synapse; пока мышь заряжается, цвет «дышит».
 
+  Донгл после сна: бывает, что гарнитура не подключается к донглу, пока его не переткнёшь.
+  Меню наушников → «Перезапускать донгл после сна»: один раз спросит UAC и создаст задачу
+  планировщика \bsctl\DongleReset. Дальше трей сам перезапускает донгл, если через 30 секунд после
+  пробуждения гарнитура не подключилась. Звук в Windows при этом пропадает на несколько секунд.
+  «Перезапустить донгл» — то же вручную (без задачи каждый раз спросит UAC).
+
   Если Windows спрятала значок под стрелку «^»: Параметры → Персонализация → Панель задач →
   Другие значки на панели задач → включи BlackSharkTray (значков может быть два).
 
@@ -40,9 +46,10 @@ bsctl 0.8.2 — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и Mouse Dock Pr
   повторный клик по значку не плодит окна, а выводит открытое вперёд. Всё хранится в bsctl.json.
 
 Шумоподавление (Equalizer APO + RNNoise или DeepFilterNet)
-  1. Equalizer APO: в Configurator (C:\Program Files\EqualizerAPO\Configurator.exe) отметь ТОЛЬКО
+  1. Equalizer APO: в Device Selector (C:\Program Files\EqualizerAPO\DeviceSelector.exe,
+     в старых версиях Configurator.exe) отметь ТОЛЬКО
      микрофон Razer BlackShark V2 Pro во вкладке Capture devices. Для наушников APO не нужен —
-     их эквалайзер работает в гарнитуре. Если после установки пропал звук: в Configurator сними
+     их эквалайзер работает в гарнитуре. Если после установки пропал звук: в Device Selector сними
      галочки с Playback devices, у микрофона включи Troubleshooting options и сними Use original APO,
      перезагрузись.
   2. Выбери движок в окне настроек (Выключен / RNNoise / DeepFilterNet) или в меню трея.
@@ -85,6 +92,7 @@ scripts\check.cmd для проверок.
   .\bsctl.exe mouse                  мышь и док: заряд, прошивки
   .\bsctl.exe dock battery           покрасить док по заряду мыши
   .\bsctl.exe autostart on|off       запуск трея вместе с Windows
+  .\bsctl.exe dongle-reset [on|off]  перезапустить донгл; on/off — задача для перезапуска после сна
 
 Настройки в bsctl.json (их же меняет окно настроек)
   preset, customEQ          эквалайзер наушников

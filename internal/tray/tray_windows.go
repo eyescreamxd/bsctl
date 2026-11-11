@@ -48,7 +48,8 @@ type trayApp struct {
 	ui     *trayUI
 	uiSrv  *ui.Server
 
-	upd *updateState // newer release, guarded by mu
+	upd        *updateState // newer release, guarded by mu
+	dongleTask bool         // the dongle reset task exists, guarded by mu
 }
 
 // Run is BlackSharkTray: one tray per user session, blocks until the user quits.
@@ -131,6 +132,7 @@ func (a *trayApp) start() {
 	}
 	go a.keepNoise()
 	go a.watchUpdates()
+	go a.refreshDongleTask()
 	go a.hs.run()
 	if a.ms != nil {
 		go a.ms.run()
@@ -220,6 +222,7 @@ type hsWorker struct {
 	lastApply   time.Time
 	micAsks     int
 	lastKey     string
+	wokeAt      time.Time // last wake from sleep, zero once the headset linked or the dongle was reset
 }
 
 func (w *hsWorker) run() {
@@ -245,6 +248,7 @@ func (w *hsWorker) run() {
 			if gap := now.Sub(lastWall); gap > 3*interval+10*time.Second {
 				w.lg.Printf("пробуждение после сна (%v), переподключаюсь", gap.Round(time.Second))
 				w.drop()
+				w.wokeAt = time.Now()
 				time.Sleep(8 * time.Second)
 			}
 			lastWall = time.Now().Round(0)
@@ -355,6 +359,7 @@ func (w *hsWorker) poll(full bool) {
 	was := w.connected
 	w.connected = c
 	w.mu.Unlock()
+	w.checkWake(c)
 	if !c {
 		if was {
 			w.lg.Printf("гарнитура отключилась")
@@ -657,7 +662,7 @@ func (a *trayApp) headsetMenu() []wintray.MenuItem {
 		{Title: micLine, Disabled: true},
 	}
 	items = append(items, a.updateMenu()...)
-	return append(items, []wintray.MenuItem{
+	items = append(items, []wintray.MenuItem{
 		{Separator: true},
 		{Title: "Настройки (эквалайзеры, шумодав)…", Action: a.openSettings},
 		{Title: "Эквалайзер", Sub: eq},
@@ -665,6 +670,9 @@ func (a *trayApp) headsetMenu() []wintray.MenuItem {
 		{Title: "Самопрослушивание", Checked: cfg.Sidetone, Action: func() { send(w.reqs, "sidetone") }},
 		{Title: "Громкость самопрослушивания", Sub: sidetoneLevels},
 		{Title: "Применить настройки", Action: func() { send(w.reqs, "apply") }},
+	}...)
+	items = append(items, a.dongleMenu()...)
+	return append(items, []wintray.MenuItem{
 		{Separator: true},
 		{Title: "Открыть bsctl.json", Action: func() { openInNotepad(config.Path()) }},
 		{Title: "Открыть лог", Action: func() { openInNotepad(config.LogPath()) }},

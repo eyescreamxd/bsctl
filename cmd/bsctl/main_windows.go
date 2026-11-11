@@ -14,6 +14,7 @@ import (
 	"github.com/eyescreamxd/bsctl/internal/audio"
 	"github.com/eyescreamxd/bsctl/internal/autostart"
 	"github.com/eyescreamxd/bsctl/internal/config"
+	"github.com/eyescreamxd/bsctl/internal/donglereset"
 	"github.com/eyescreamxd/bsctl/internal/eapo"
 	"github.com/eyescreamxd/bsctl/internal/headset"
 	"github.com/eyescreamxd/bsctl/internal/hid"
@@ -56,6 +57,8 @@ const usage = `bsctl %s — Razer BlackShark V2 Pro (2023), Basilisk V3 Pro и M
 
   bsctl tray               значки в трее (то же, что BlackSharkTray.exe)
   bsctl autostart on|off   запуск трея при входе в Windows
+  bsctl dongle-reset       перезапустить донгл гарнитуры (как переткнуть его)
+  bsctl dongle-reset on|off перезапуск донгла после сна: задача планировщика (один раз UAC)
   bsctl uninstall-cleanup  убрать автозапуск и свои файлы из Equalizer APO (вызывает деинсталлятор)
 
 Настройки: bsctl.json, лог: bsctl.log — в %%LOCALAPPDATA%%\bsctl,
@@ -243,15 +246,48 @@ func runCLI(args []string, cfg *config.Config, lg *log.Logger) error {
 		}
 		lg.Printf("автозапуск: %s", args[1])
 		return nil
+	case "dongle-reset":
+		return dongleReset(args[1:], lg)
 	case "uninstall-cleanup":
 		if err := autostart.Set(false); err != nil {
 			lg.Printf("автозапуск: %v", err)
+		}
+		if err := donglereset.Disable(true); err != nil {
+			lg.Printf("задача перезапуска донгла: %v", err)
 		}
 		return eapo.Uninstall(lg.Printf)
 	default:
 		fmt.Printf(usage, version.Version, paths.StateDir())
 		return nil
 	}
+}
+
+func dongleReset(args []string, lg *log.Logger) error {
+	switch {
+	case len(args) == 0:
+		if donglereset.Installed() {
+			if err := donglereset.Run(); err != nil {
+				return err
+			}
+		} else if err := donglereset.RestartNow(); err != nil {
+			return err
+		}
+		lg.Printf("донгл перезапускается")
+		return nil
+	case args[0] == "on":
+		if err := donglereset.Enable(); err != nil {
+			return err
+		}
+		lg.Printf("перезапуск донгла после сна: включён (задача %s)", donglereset.TaskName)
+		return nil
+	case args[0] == "off":
+		if err := donglereset.Disable(true); err != nil {
+			return err
+		}
+		lg.Printf("перезапуск донгла после сна: выключен")
+		return nil
+	}
+	return fmt.Errorf("bsctl dongle-reset [on|off]")
 }
 
 func argSeconds(args []string, def int) time.Duration {

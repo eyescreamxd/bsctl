@@ -187,7 +187,7 @@ func (st Status) ProblemFor(nc NoiseConfig) string {
 	case st.Mic == nil:
 		return "микрофон BlackShark не найден среди звуковых устройств (донгл воткнут?)"
 	case !st.Mic.APOOnIt:
-		return "Equalizer APO не подключён к микрофону BlackShark: открой Configurator, отметь его во вкладке Capture devices и перезагрузи ПК"
+		return "Equalizer APO не подключён к микрофону BlackShark: открой Device Selector (DeviceSelector.exe, в старых версиях Configurator.exe), отметь его во вкладке Capture devices и перезагрузи ПК"
 	}
 	if !nc.Enabled {
 		return ""
@@ -265,7 +265,11 @@ func Apply(nc NoiseConfig, micEQ []int, lg Logf) (Status, error) {
 		if micEQ != nil {
 			eq = fmt.Sprint(micEQ)
 		}
-		lg("Equalizer APO: %s обновлён (шумодав: %s, эквалайзер: %s, усиление %s дБ)", OwnFile, what, eq, TrimFloat(want.GainDB))
+		why := ""
+		if st.Problem != "" && (nc.Enabled || st.Mic == nil) {
+			why = "; настройки из bsctl.json вернутся сами, пока: " + st.Problem
+		}
+		lg("Equalizer APO: %s обновлён (шумодав: %s, эквалайзер: %s, усиление %s дБ%s)", OwnFile, what, eq, TrimFloat(want.GainDB), why)
 	}
 	mainPath := filepath.Join(st.ConfigDir, "config.txt")
 	cur, _ := os.ReadFile(mainPath)

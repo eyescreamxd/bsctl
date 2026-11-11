@@ -73,6 +73,8 @@
 | `internal/eapo/audiofmt_windows.go` | формат микрофона через MMDevice API (COM, `PKEY_AudioEngine_DeviceFormat`) |
 | `internal/audio/audio_windows.go` | waveIn: держит микрофон открытым для самопрослушивания |
 | `internal/config/config.go` | `bsctl.json`: умолчания, проверка, сохранение через `.tmp` и rename; `bsctl.log` |
+| `internal/donglereset/` | перезапуск донгла: XML задачи планировщика (без Win32), создание/запуск/удаление задачи, запуск с UAC |
+| `internal/tray/dongle_windows.go` | пункты меню донгла, перезапуск после сна (`checkWake`) |
 | `internal/autostart/` | ключ `HKCU\…\Run`; при старте трей переписывает путь, если exe переехал |
 | `internal/paths/`, `internal/version/` | папка exe, папка состояния (`StateDir`, портативный режим); версия |
 | `internal/update/` | последний релиз на GitHub, сравнение версий, скачивание установщика с проверкой SHA-256 |
@@ -90,7 +92,7 @@
   `git push origin vX.Y.Z`. Workflow сверит тег с версией, прогонит проверки, соберёт установщик и создаст Release
   с `bsctl-setup-X.Y.Z.exe` и `.sha256` (имена важны: их ищет `update.Release.Installer`). Репозиторий публичный:
   трей читает `api.github.com` без токена.
-- Деинсталлятор вызывает `bsctl uninstall-cleanup`: автозапуск выкл, из APO убираются `Include: bsctl.txt`, `bsctl.txt`
+- Деинсталлятор вызывает `bsctl uninstall-cleanup`: автозапуск выкл, задача `\bsctl\DongleReset` удаляется (если есть, с UAC), из APO убираются `Include: bsctl.txt`, `bsctl.txt`
   и `config\bsctl\`. Установщик перед копированием закрывает все `BlackSharkTray.exe` (и портативный тоже).
 - Разработка: `scripts\build.cmd` собирает в `dist\` (портативно) и копирует туда плагины, скрипты и `README.txt`;
   запуск — `dist\update.cmd`. Запущенный `BlackSharkTray.exe` занят Windows, поэтому новый трей всегда собирается как
@@ -170,6 +172,19 @@
   но ни собеседник, ни самопрослушивание разницы не слышат. Synapse 0x97 этой гарнитуре не шлёт. Поэтому `Apply` шлёт пресет 0,
   а EQ микрофона делает Equalizer APO (`GraphicEQ` в `bsctl.txt`, `Config.MicEQ`).
 - Самопрослушивание идёт внутри гарнитуры, мимо Windows: шумодав и EQ из APO в нём не слышны.
+- Донгл после сна (2026-11-11): иногда отвечает по HID (прошивка 2.4.1.0 читается), но `0x20` даёт «не подключена»,
+  и гарнитура уходит в Bluetooth. Лечит только переподключение донгла. Программно — `internal/donglereset`:
+  - `pnputil /restart-device` без подготовки не годится: `audiodg.exe` держит звуковой интерфейс `MI_00` и запрещает его
+    перезапуск (System, Kernel-PnP 225). Перезапускается только HID, донгл получает `IsRebootRequired`, и дальше любой
+    restart отвечает «Device is pending system reboot» до перезагрузки или физического переподключения;
+  - поэтому задача делает `net stop audiosrv /y`, `pnputil /restart-device`, `net start audiosrv`. Проверено: HID
+    отваливается и возвращается, гарнитура подключается за ~6 с, эндпоинт микрофона и APO на нём остаются;
+  - **никогда** не `pnputil /remove-device` + `/scan-devices`: у нового узла другой `ParentIdPrefix`, Windows создаёт новые
+    звуковые эндпоинты (новый GUID), APO с микрофона пропадает (Device Selector заново), выбор устройств в программах тоже;
+  - задача `\bsctl\DongleReset`: S4U, `HighestAvailable`, без триггеров, ID донгла (`USB\VID_1532&PID_0555\<серийник>`) зашит
+    в аргументы; создаётся один раз с UAC (`schtasks /create /xml`), запускается треем без UAC (`schtasks /run`).
+    С правами администратора выполняются только системные `cmd`, `net`, `pnputil`, не файлы из папки программы.
+  - трей запускает её один раз, если через 30 с после пробуждения гарнитура не подключилась (`hsWorker.checkWake`).
 
 ### Мышь и док
 
@@ -216,7 +231,7 @@ Razer 2.5:
 - Формат микрофона в реестре (`{f19f064d-…},0`) хранится с 8-байтным заголовком: `41 00 00 00 01 00 00 00` + WAVEFORMATEX.
   Наивное чтение со смещением 4 давало «1 Гц». Правильный путь — COM (`audiofmt_windows.go`), запасной — поиск структуры (`parseWaveFormat`).
 - Что APO стоит на микрофоне, определяется так: один из `FxProperties\{d04e05a6-594b-4fb6-a80d-01af5eed7d1d},N` указывает на CLSID
-  с `EqualizerAPO.dll` в `InprocServer32`. При смене драйвера, например при удалении THX, Configurator надо запускать заново.
+  с `EqualizerAPO.dll` в `InprocServer32`. При смене драйвера (например, при удалении THX) или пересоздании эндпоинта Device Selector (`DeviceSelector.exe`, раньше `Configurator.exe`) надо запускать заново.
 - После установки APO на устройства вывода у пользователя пропадал звук везде: APO конфликтовал с THX от Synapse.
   Поэтому APO ставится только на микрофон.
 
